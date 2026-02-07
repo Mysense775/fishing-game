@@ -290,14 +290,13 @@
             // Hook - curved with prediction, "negative delay" at bottom
             if (hook.drop) {
                 // Speed up drop
-                hook.len += 15;
+                hook.len += 22;
                 hook.y = boat.y + 20 + hook.len;
                 hook.x = boat.x + Math.sin(boat.angle) * 20;
                 
                 // "Negative delay" - start retracting BEFORE hitting bottom
-                // This compensates for the frame where it would sit at bottom
                 const maxLen = canvas.height - boat.y - 100;
-                const earlyRetract = 15; // Start 15px early
+                const earlyRetract = 40; // Start 40px early (increased!)
                 
                 if (hook.len >= maxLen - earlyRetract) {
                     hook.drop = false;
@@ -325,7 +324,7 @@
             }
             
             if (hook.retract) {
-                hook.len -= 15; // Slightly faster retract
+                hook.len -= 22; // Speed 22
                 if (hook.fish) { hook.fish.x = hook.x; hook.fish.y = hook.y; }
                 if (hook.len <= 0) {
                     hook.retract = false;
