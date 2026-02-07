@@ -272,13 +272,13 @@
             for (const b of bubbles) b.y -= b.sp;
             bubbles = bubbles.filter(b => b.y > -10);
             
-            // Hook - reaches bottom with no delay
+            // Hook - NO DELAY at bottom, instant retract
             if (hook.drop) {
-                hook.len += 20;
+                hook.len += 25;
                 hook.y = boat.y + 20 + hook.len;
                 
-                // Доходит почти до дна, потом сразу поднимается
-                if (hook.y > canvas.height - 80) { 
+                // Сразу поднимается без задержки!
+                if (hook.y > canvas.height - 60) { 
                     hook.drop = false; 
                     hook.retract = true; 
                 }
@@ -302,7 +302,7 @@
             }
             
             if (hook.retract) {
-                hook.len -= 18; // Быстрее поднимается
+                hook.len -= 25; // Мгновенно поднимается
                 if (hook.fish) { hook.fish.x = hook.x; hook.fish.y = hook.y; }
                 if (hook.len <= 0) {
                     hook.retract = false;
