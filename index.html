@@ -960,11 +960,16 @@
         function startTimer() {
             stopTimer();
             timerInterval = setInterval(() => {
+                if (!gameRunning || endGamePending) return;
+                
                 timeLeft--;
                 document.getElementById('timer').textContent = formatTime(timeLeft);
                 
-                if (timeLeft <= 0) {
-                    endGame();
+                if (timeLeft <= 0 && !endGamePending) {
+                    endGamePending = true;
+                    setTimeout(() => {
+                        endGame();
+                    }, 100);
                 }
             }, 1000);
         }
@@ -982,8 +987,10 @@
         }
         
         function endGame() {
+            if (!endGamePending) return;
             gameRunning = false;
             stopTimer();
+            endGamePending = false;
             
             const resultTitle = document.getElementById('resultTitle');
             const resultStats = document.getElementById('resultStats');
