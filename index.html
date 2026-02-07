@@ -287,21 +287,17 @@
             for (const b of bubbles) b.y -= b.sp;
             bubbles = bubbles.filter(b => b.y > -10);
             
-            // Hook - NO DELAY at bottom
+            // Hook - v7 logic: simple and no delay
             if (hook.drop) {
-                // Проверяем заранее, достигнет ли леска дна в этом кадре
-                const nextY = boat.y + 20 + hook.len + 30;
+                hook.len += 12;
+                hook.y = boat.y + 20 + hook.len;
+                hook.x = boat.x + Math.sin(boat.angle) * 20;
                 
-                if (nextY >= canvas.height - 60) {
-                    // Достигли дна - сразу начинаем подниматься
-                    hook.len = canvas.height - 60 - boat.y - 20;
-                    hook.y = boat.y + 20 + hook.len;
+                // Max length - when reached, instantly retract
+                const maxLen = canvas.height - boat.y - 80;
+                if (hook.len >= maxLen) {
                     hook.drop = false;
                     hook.retract = true;
-                } else {
-                    // Продолжаем падать
-                    hook.len += 30;
-                    hook.y = boat.y + 20 + hook.len;
                 }
                 
                 for (let i = fishes.length - 1; i >= 0; i--) {
@@ -325,7 +321,7 @@
             }
             
             if (hook.retract) {
-                hook.len -= 25; // Мгновенно поднимается
+                hook.len -= 12; // v7 speed
                 if (hook.fish) { hook.fish.x = hook.x; hook.fish.y = hook.y; }
                 if (hook.len <= 0) {
                     hook.retract = false;
@@ -435,63 +431,29 @@
                 ctx.restore();
             }
             
-            // Hook line - curved like real fishing line
+            // Hook line - v7 style: straight but with gradient
             if (hook.drop || hook.retract) {
                 const startX = boat.x + Math.sin(boat.angle) * 20;
                 const startY = boat.y + 10;
                 
-                // Create curve control point for realistic slack
-                const midX = (startX + hook.x) / 2;
-                const midY = (startY + hook.y) / 2;
-                // Add slack based on hook movement
-                const slack = hook.drop ? hook.len * 0.1 : Math.max(0, 20 - hook.len * 0.1);
-                const controlX = midX + Math.sin(Date.now() / 200) * slack;
-                const controlY = midY + slack;
-                
-                // Gradient line
+                // Simple straight line with gradient
                 const lineGrad = ctx.createLinearGradient(startX, startY, hook.x, hook.y);
                 lineGrad.addColorStop(0, '#666');
-                lineGrad.addColorStop(0.5, '#888');
                 lineGrad.addColorStop(1, '#AAA');
                 
-                // Draw curved line (quadratic bezier)
                 ctx.strokeStyle = lineGrad;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.moveTo(startX, startY);
-                ctx.quadraticCurveTo(controlX, controlY, hook.x, hook.y);
+                ctx.lineTo(hook.x, hook.y);
                 ctx.stroke();
                 
-                // Hook with shine
-                const hookGrad = ctx.createRadialGradient(hook.x - 2, hook.y - 2, 0, hook.x, hook.y, 10);
-                hookGrad.addColorStop(0, '#CCC');
-                hookGrad.addColorStop(0.5, '#888');
-                hookGrad.addColorStop(1, '#444');
-                
-                ctx.strokeStyle = hookGrad;
+                // Hook
+                ctx.strokeStyle = '#888';
                 ctx.lineWidth = 3;
                 ctx.beginPath();
                 ctx.arc(hook.x, hook.y, 8, 0, Math.PI, false);
                 ctx.stroke();
-                
-                // Hook highlight
-                ctx.strokeStyle = '#FFF';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.arc(hook.x - 1, hook.y - 1, 6, 0, Math.PI * 0.7);
-                ctx.stroke();
-            }
-            
-            // Splash effect when hook hits water
-            if (hook.drop && hook.len > 5 && hook.len < 20) {
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-                for (let i = 0; i < 6; i++) {
-                    const angle = (i / 6) * Math.PI * 2;
-                    const r = 12 - hook.len * 0.4;
-                    ctx.beginPath();
-                    ctx.arc(hook.x + Math.cos(angle) * r, boat.y + 25 + Math.sin(angle) * 2, 2 + hook.len * 0.1, 0, Math.PI * 2);
-                    ctx.fill();
-                }
             }
             
             // Score animations
