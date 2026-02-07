@@ -23,6 +23,7 @@
             justify-content: space-between;
             pointer-events: none;
             gap: 8px;
+            flex-wrap: wrap;
         }
         .score-box {
             background: rgba(0, 0, 0, 0.4);
@@ -34,6 +35,66 @@
             backdrop-filter: blur(4px);
             border: 1px solid rgba(255, 255, 255, 0.2);
             white-space: nowrap;
+        }
+        .energy-bar {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.4);
+            padding: 6px 12px;
+            border-radius: 15px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .energy-fill {
+            width: 100px;
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .energy-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            transition: width 0.3s ease;
+        }
+        .level-display {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.4);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 14px;
+            font-weight: bold;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+        }
+        .booster-indicator {
+            position: absolute;
+            top: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.4);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            gap: 8px;
+        }
+        .booster-active {
+            color: #FFD700;
+            font-weight: bold;
         }
         .screen {
             position: absolute;
@@ -77,6 +138,26 @@
             <div class="score-box">⭐ <span id="scoreVal">0</span></div>
             <div class="score-box" id="timerUI" style="display:none;">⏱️ <span id="timeVal">02:00</span></div>
             <div class="score-box" id="targetUI" style="display:none;">🎯 <span id="caughtVal">0</span>/25</div>
+            <div class="score-box">💎 <span id="tonStars">0</span></div>
+            <div class="score-box">🏆 <span id="tournamentScore">0</span></div>
+        </div>
+        <div class="energy-bar">
+            <span>⚡</span>
+            <div class="energy-fill">
+                <div class="energy-progress" id="energyProgress" style="width: 100%;"></div>
+            </div>
+            <span id="energyText">100/100</span>
+        </div>
+        <div class="level-display">
+            <div id="levelText">Novice Lvl 1</div>
+            <div id="expBar" style="width: 100px; height: 4px; background: #333; border-radius: 2px; margin-top: 2px;">
+                <div id="expProgress" style="height: 100%; background: #FFD700; width: 0%; border-radius: 2px;"></div>
+            </div>
+        </div>
+        <div class="booster-indicator" id="boostersUI" style="display: none;">
+            <span id="rodBooster" class="booster-active" style="display: none;">🎣 Rod</span>
+            <span id="baitBooster" class="booster-active" style="display: none;">🪱 Bait</span>
+            <span id="magnetBooster" class="booster-active" style="display: none;">🧲 Magnet</span>
         </div>
         
         <div id="startScreen" class="screen active">
@@ -89,12 +170,68 @@
             <h1>🎮 Выбери режим</h1>
             <button class="btn mode" onclick="startGame('free')">🎣 СВОБОДНАЯ ИГРА</button>
             <button class="btn mode challenge" onclick="startGame('challenge')">🏆 ИСПЫТАНИЕ<br><small>25 рыбок за 2 минуты!</small></button>
+            <div style="display: flex; flex-direction: row; gap: 10px; margin-top: 20px;">
+                <button class="btn" onclick="showCollection()">📚 КОЛЛЕКЦИЯ</button>
+                <button class="btn" onclick="showScreen('shopScreen')">🛒 МАГАЗИН</button>
+            </div>
+            <div style="display: flex; flex-direction: row; gap: 10px; margin-top: 10px;">
+                <button class="btn" onclick="showScreen('tournamentScreen')">🎪 ТУРНИР</button>
+                <button class="btn" onclick="showScreen('dailyRewardScreen')">🎁 ЕЖЕДНЕВНО</button>
+            </div>
         </div>
         
         <div id="gameOverScreen" class="screen">
             <h1 id="resultTitle">Игра окончена!</h1>
             <div id="resultStats"></div>
             <button class="btn" onclick="showModes()">ЕЩЁ РАЗ</button>
+        </div>
+        
+        <div id="dailyRewardScreen" class="screen">
+            <h1>🎁 Ежедневная награда</h1>
+            <div id="dailyRewardContent" style="color: white; text-align: center; margin: 20px;">
+                <div style="font-size: 24px; margin-bottom: 20px;">🎉 Отлично!</div>
+                <div>Бонус: <span id="dailyBonus">+100 ⭐</span></div>
+                <div>Энергия восстановлена: <span id="dailyEnergy">+50 ⚡</span></div>
+            </div>
+            <button class="btn" onclick="claimDailyReward()">Забрать награду</button>
+            <button class="btn" onclick="showModes()">В меню</button>
+        </div>
+        
+        <div id="collectionScreen" class="screen">
+            <h1>📚 Альбом коллекций</h1>
+            <div id="collectionContent" style="color: white; text-align: center; margin: 20px; max-height: 60vh; overflow-y: auto;"></div>
+            <button class="btn" onclick="showModes()">Назад</button>
+        </div>
+        
+        <div id="shopScreen" class="screen">
+            <h1>🛒 Магазин</h1>
+            <div id="shopContent" style="color: white; text-align: center; margin: 20px; max-height: 60vh; overflow-y: auto;">
+                <div style="margin: 10px 0;">
+                    <div style="font-size: 18px; margin-bottom: 10px;">🎣 Удочка (+50% к очкам)</div>
+                    <button class="btn" onclick="buyBooster('betterRod')">Купить за 50 💎</button>
+                </div>
+                <div style="margin: 10px 0;">
+                    <div style="font-size: 18px; margin-bottom: 10px;">🪱 Наживка (+25% к опыту)</div>
+                    <button class="btn" onclick="buyBooster('betterBait')">Купить за 30 💎</button>
+                </div>
+                <div style="margin: 10px 0;">
+                    <div style="font-size: 18px; margin-bottom: 10px;">🧲 Магнит (авто-рыбалка)</div>
+                    <button class="btn" onclick="buyBooster('magnet')">Купить за 100 💎</button>
+                </div>
+            </div>
+            <button class="btn" onclick="showModes()">Назад</button>
+        </div>
+        
+        <div id="tournamentScreen" class="screen">
+            <h1>🎪 Сезонный турнир</h1>
+            <div id="tournamentContent" style="color: white; text-align: center; margin: 20px;">
+                <div style="font-size: 18px; margin-bottom: 10px;">🏆 Турнир активен!</div>
+                <div>Ваш счёт: <span id="currentTournamentScore">0</span></div>
+                <div>Лучший результат: <span id="bestTournamentScore">0</span></div>
+                <div>До конца: <span id="tournamentTime">7 дней</span></div>
+            </div>
+            <button class="btn" onclick="startTournament()">Играть в турнире</button>
+            <button class="btn" onclick="showModes()">Назад</button>
         </div>
     </div>
 
@@ -111,6 +248,44 @@
         let timeLeft = 120;
         let timerId = null;
         let animationId = null;
+        
+        // New game systems
+        let fishermanLevel = 1;
+        let experience = 0;
+        let energy = 100;
+        let maxEnergy = 100;
+        let dailyRewardsClaimed = false;
+        let collectedFish = {};
+        let boosters = {
+            betterRod: { active: false, duration: 0, totalUses: 0 },
+            betterBait: { active: false, duration: 0, totalUses: 0 },
+            magnet: { active: false, duration: 0, totalUses: 0 }
+        };
+        let tonStars = 0;
+        let seasonTournamentActive = false;
+        let tournamentScore = 0;
+        let currentRarity = null;
+        let currentRarityMultiplier = 1;
+        
+        // Fish rarity definitions
+        const fishRarities = [
+            { name: 'Common', color: '#808080', chance: 0.45, multiplier: 1.0, symbol: '🐟' },
+            { name: 'Uncommon', color: '#00FF00', chance: 0.25, multiplier: 1.5, symbol: '🐠' },
+            { name: 'Rare', color: '#0080FF', chance: 0.15, multiplier: 2.0, symbol: '🐡' },
+            { name: 'Epic', color: '#8000FF', chance: 0.08, multiplier: 3.0, symbol: '🦑' },
+            { name: 'Legendary', color: '#FF8000', chance: 0.05, multiplier: 5.0, symbol: '🐙' },
+            { name: 'Mythic', color: '#FF0000', chance: 0.02, multiplier: 10.0, symbol: '👑' }
+        ];
+        
+        // Level definitions
+        const levels = [
+            { name: 'Novice', exp: 0 },
+            { name: 'Apprentice', exp: 100 },
+            { name: 'Fisher', exp: 250 },
+            { name: 'Expert', exp: 500 },
+            { name: 'Master', exp: 1000 },
+            { name: 'Legend', exp: 2000 }
+        ];
         
         // Entities
         let boat = { x: 0, y: 120, dir: 1, angle: 0 };
@@ -165,6 +340,237 @@
             document.getElementById('scoreVal').textContent = score;
             document.getElementById('timeVal').textContent = formatTime(timeLeft);
             document.getElementById('caughtVal').textContent = caught;
+            document.getElementById('tonStars').textContent = tonStars;
+            document.getElementById('tournamentScore').textContent = tournamentScore;
+            
+            // Update energy bar
+            document.getElementById('energyProgress').style.width = (energy / maxEnergy * 100) + '%';
+            document.getElementById('energyText').textContent = energy + '/' + maxEnergy;
+            
+            // Update level display
+            const currentLevel = getCurrentLevel();
+            document.getElementById('levelText').textContent = currentLevel.name + ' Lvl ' + fishermanLevel;
+            
+            // Calculate experience progress for current level
+            const nextLevel = levels[fishermanLevel] || levels[levels.length - 1];
+            const prevLevel = levels[fishermanLevel - 1] || levels[0];
+            const expForCurrentLevel = experience - prevLevel.exp;
+            const expForNextLevel = nextLevel.exp - prevLevel.exp;
+            const expPercent = expForCurrentLevel / expForNextLevel * 100;
+            document.getElementById('expProgress').style.width = Math.min(expPercent, 100) + '%';
+            
+            // Update booster indicators
+            updateBoosterIndicators();
+        }
+        
+        function getCurrentLevel() {
+            for (let i = levels.length - 1; i >= 0; i--) {
+                if (experience >= levels[i].exp) {
+                    return levels[i];
+                }
+            }
+            return levels[0];
+        }
+        
+        function updateBoosterIndicators() {
+            const rodBooster = document.getElementById('rodBooster');
+            const baitBooster = document.getElementById('baitBooster');
+            const magnetBooster = document.getElementById('magnetBooster');
+            const boostersUI = document.getElementById('boostersUI');
+            
+            rodBooster.style.display = boosters.betterRod.active ? 'inline' : 'none';
+            baitBooster.style.display = boosters.betterBait.active ? 'inline' : 'none';
+            magnetBooster.style.display = boosters.magnet.active ? 'inline' : 'none';
+            
+            boostersUI.style.display = (boosters.betterRod.active || boosters.betterBait.active || boosters.magnet.active) ? 'flex' : 'none';
+        }
+        
+        function addExperience(amount) {
+            if (boosters.betterBait.active) {
+                amount *= 1.25; // Better bait gives 25% more XP
+            }
+            experience += amount;
+            
+            // Check for level up
+            const oldLevel = fishermanLevel;
+            while (fishermanLevel < levels.length && experience >= levels[fishermanLevel].exp) {
+                fishermanLevel++;
+            }
+            
+            if (fishermanLevel > oldLevel) {
+                // Level up notification
+                addNotification(`🎉 Повышение до ${getCurrentLevel().name}!`);
+            }
+            
+            updateUI();
+        }
+        
+        function addStars(amount) {
+            tonStars += amount;
+            updateUI();
+        }
+        
+        function spendEnergy(amount) {
+            energy = Math.max(0, energy - amount);
+            updateUI();
+            return energy >= amount;
+        }
+        
+        function restoreEnergy(amount) {
+            energy = Math.min(maxEnergy, energy + amount);
+            updateUI();
+        }
+        
+        function updateBoosters() {
+            // Update active boosters
+            if (boosters.betterRod.active) {
+                boosters.betterRod.duration--;
+                if (boosters.betterRod.duration <= 0) {
+                    boosters.betterRod.active = false;
+                }
+            }
+            if (boosters.betterBait.active) {
+                boosters.betterBait.duration--;
+                if (boosters.betterBait.duration <= 0) {
+                    boosters.betterBait.active = false;
+                }
+            }
+            if (boosters.magnet.active) {
+                boosters.magnet.duration--;
+                if (boosters.magnet.duration <= 0) {
+                    boosters.magnet.active = false;
+                }
+            }
+            updateBoosterIndicators();
+        }
+        
+        function buyBooster(type) {
+            let cost = 0;
+            switch(type) {
+                case 'betterRod': cost = 50; break;
+                case 'betterBait': cost = 30; break;
+                case 'magnet': cost = 100; break;
+            }
+            
+            if (tonStars >= cost) {
+                tonStars -= cost;
+                
+                // Activate booster
+                boosters[type].active = true;
+                boosters[type].totalUses++;
+                
+                // Set duration based on booster type
+                switch(type) {
+                    case 'betterRod': boosters[type].duration = 300; break; // 5 minutes (5 min * 60 sec)
+                    case 'betterBait': boosters[type].duration = 300; break;
+                    case 'magnet': boosters[type].duration = 180; break; // 3 minutes
+                }
+                
+                updateUI();
+                addNotification(`✨ ${type === 'betterRod' ? 'Удочка' : type === 'betterBait' ? 'Наживка' : 'Магнит'} активирован!`);
+            } else {
+                addNotification(`❌ Не хватает TON Stars!`);
+            }
+        }
+        
+        function addNotification(text) {
+            // Simple notification system
+            const notification = document.createElement('div');
+            notification.textContent = text;
+            notification.style.cssText = `
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 10px 20px;
+                border-radius: 10px;
+                font-size: 16px;
+                z-index: 1000;
+                pointer-events: none;
+                animation: fadeOut 2s forwards;
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 2000);
+        }
+        
+        function recordCaughtFish(rarity) {
+            if (!collectedFish[rarity]) {
+                collectedFish[rarity] = 0;
+            }
+            collectedFish[rarity]++;
+        }
+        
+        function claimDailyReward() {
+            // Add daily reward logic
+            const bonusStars = 50 + Math.floor(Math.random() * 50); // 50-100 stars
+            const bonusEnergy = 50;
+            
+            tonStars += bonusStars;
+            restoreEnergy(bonusEnergy);
+            
+            dailyRewardsClaimed = true;
+            
+            // Send to bot
+            if (window.Telegram?.WebApp) {
+                window.Telegram.WebApp.sendData(JSON.stringify({
+                    action: 'daily_reward', 
+                    stars: bonusStars, 
+                    energy: bonusEnergy
+                }));
+            }
+            
+            addNotification(`🎁 Получено: ${bonusStars} 💎 и ${bonusEnergy} ⚡`);
+            showModes();
+        }
+        
+        function showCollection() {
+            // Display collected fish
+            const collectionContent = document.getElementById('collectionContent');
+            let html = '<h3>Ваша коллекция:</h3>';
+            
+            for (const rarity of fishRarities) {
+                const count = collectedFish[rarity.name] || 0;
+                html += `<div style="margin: 10px 0; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 5px;">
+                    <span style="color: ${rarity.color};">${rarity.symbol} ${rarity.name}</span>: ${count} шт.
+                </div>`;
+            }
+            
+            collectionContent.innerHTML = html;
+            showScreen('collectionScreen');
+        }
+        
+        function startTournament() {
+            seasonTournamentActive = true;
+            tournamentScore = 0;
+            startGame('tournament');
+        }
+        
+        function updateTournamentScore(points) {
+            if (seasonTournamentActive) {
+                tournamentScore += points;
+                document.getElementById('currentTournamentScore').textContent = tournamentScore;
+                updateUI();
+            }
+        }
+        
+        function getRandomRarity() {
+            const rand = Math.random();
+            let cumulativeChance = 0;
+            
+            for (const rarity of fishRarities) {
+                cumulativeChance += rarity.chance;
+                if (rand <= cumulativeChance) {
+                    return rarity;
+                }
+            }
+            
+            // Fallback to common if no match (shouldn't happen)
+            return fishRarities[0];
         }
         
         // Game control
@@ -213,13 +619,29 @@
             document.getElementById('resultTitle').style.color = gameMode === 'challenge' && won ? '#4CAF50' : '#FFD700';
             document.getElementById('resultStats').innerHTML = `
                 🎯 Поймано: <span class="${gameMode === 'challenge' && won ? 'success' : ''}"><b>${caught}</b></span>${gameMode === 'challenge' ? '/25' : ''}<br>
-                ⭐ Очки: <b>${score}</b>
+                ⭐ Очки: <b>${score}</b><br>
+                🏆 Уровень: <b>${fishermanLevel}</b> (${getCurrentLevel().name})<br>
+                💎 TON Stars: <b>${tonStars}</b>
             `;
             showScreen('gameOverScreen');
             
             if (window.Telegram?.WebApp) {
                 window.Telegram.WebApp.sendData(JSON.stringify({
-                    action: 'game_over', mode: gameMode, score: score, caught: caught, success: gameMode === 'challenge' ? won : true
+                    action: 'game_over', 
+                    mode: gameMode, 
+                    score: score, 
+                    caught: caught, 
+                    success: gameMode === 'challenge' ? won : true,
+                    level: fishermanLevel,
+                    experience: experience,
+                    ton_stars: tonStars,
+                    collected_fish: collectedFish,
+                    tournament_score: tournamentScore,
+                    boosters_used: {
+                        better_rod: boosters.betterRod.totalUses,
+                        better_bait: boosters.betterBait.totalUses,
+                        magnet: boosters.magnet.totalUses
+                    }
                 }));
             }
         }
@@ -227,10 +649,11 @@
         // Score animations array
         let scoreAnims = [];
         
-        // Spawn colorful fish
+        // Spawn colorful fish with rarity system
         function spawnFish() {
             if (fishes.length < 5 && Math.random() < 0.02) {
-                const types = [
+                const rarity = getRandomRarity();
+                const baseTypes = [
                     {e: '🐟', s: 2, p: 10, name: 'blue'},      // Blue fish
                     {e: '🐠', s: 3, p: 20, name: 'yellow'},    // Yellow/orange fish  
                     {e: '🐡', s: 1.5, p: 30, name: 'puffer'},  // Puffer fish
@@ -238,30 +661,45 @@
                     {e: '🐙', s: 2.5, p: 40, name: 'octopus'}, // Octopus
                     {e: '🦑', s: 3.5, p: 35, name: 'squid'}    // Squid
                 ];
-                const t = types[Math.floor(Math.random() * types.length)];
+                
+                // Select a random base type and apply rarity properties
+                const baseType = baseTypes[Math.floor(Math.random() * baseTypes.length)];
+                const modifiedType = {
+                    e: rarity.symbol || baseType.e,
+                    s: baseType.s * (0.8 + Math.random() * 0.4), // Slightly vary speed
+                    p: Math.floor(baseType.p * rarity.multiplier),
+                    name: baseType.name,
+                    rarity: rarity
+                };
+                
                 const dir = Math.random() > 0.5 ? 1 : -1;
                 fishes.push({
                     x: dir > 0 ? -50 : canvas.width + 50,
                     y: boat.y + 70 + Math.random() * (canvas.height - boat.y - 200),
-                    type: t, dir: dir, w: Math.random() * Math.PI * 2, caught: false
+                    type: modifiedType, dir: dir, w: Math.random() * Math.PI * 2, caught: false
                 });
             }
         }
         
         // Add score animation
-        function addScoreAnim(x, y, points) {
+        function addScoreAnim(x, y, points, color = '#FFD700') {
             scoreAnims.push({
                 x: x,
                 y: y,
                 text: '+' + points,
                 life: 60,
-                vy: -2
+                vy: -2,
+                color: color
             });
         }
         
         // Drop hook
         function dropHook() {
             if (gameState !== 'PLAYING' || hook.drop || hook.retract) return;
+            if (!spendEnergy(1)) {
+                addNotification('⚡ Не хватает энергии!');
+                return;
+            }
             hook.drop = true;
             hook.x = boat.x;
             hook.y = boat.y + 20;
@@ -304,22 +742,108 @@
                     hook.retract = true;
                 }
                 
-                for (let i = fishes.length - 1; i >= 0; i--) {
-                    const f = fishes[i];
-                    if (f.caught) continue;
-                    const dx = hook.x - f.x, dy = hook.y - f.y;
-                    if (dx*dx + dy*dy < 900) {
-                        f.caught = true;
-                        hook.fish = f;
-                        hook.drop = false;
-                        hook.retract = true;
-                        score += f.type.p;
-                        caught++;
-                        updateUI();
-                        // Add floating score animation
-                        addScoreAnim(f.x, f.y, f.type.p);
-                        if (gameMode === 'challenge' && caught >= 25) { endGame(); return; }
-                        break;
+                // Magnet booster effect - automatic fish attraction
+                if (boosters.magnet.active) {
+                    for (let i = fishes.length - 1; i >= 0; i--) {
+                        const f = fishes[i];
+                        if (f.caught) continue;
+                        
+                        // Magnet pulls fish towards hook
+                        const dx = hook.x - f.x;
+                        const dy = hook.y - f.y;
+                        const distance = Math.sqrt(dx*dx + dy*dy);
+                        
+                        // If fish is close enough, attract it
+                        if (distance < 200) {
+                            // Move fish toward hook
+                            f.x += (hook.x - f.x) * 0.05;
+                            f.y += (hook.y - f.y) * 0.05;
+                            
+                            // If fish touches hook, catch it
+                            if (distance < 30) {
+                                f.caught = true;
+                                hook.fish = f;
+                                hook.drop = false;
+                                hook.retract = true;
+                                
+                                // Apply point multiplier based on fish rarity and boosters
+                                let points = f.type.p;
+                                if (boosters.betterRod.active) {
+                                    points = Math.floor(points * 1.5); // Better rod gives 50% more points
+                                }
+                                
+                                score += points;
+                                caught++;
+                                
+                                // Add experience based on points
+                                addExperience(points);
+                                
+                                // Add TON Stars based on rarity
+                                const starsToAdd = Math.floor(f.type.rarity.multiplier * 2);
+                                addStars(starsToAdd);
+                                
+                                // Record in collection
+                                recordCaughtFish(f.type.rarity.name);
+                                
+                                // Update tournament score if active
+                                if (seasonTournamentActive) {
+                                    updateTournamentScore(points);
+                                }
+                                
+                                updateUI();
+                                
+                                // Add floating score animation with rarity color
+                                addScoreAnim(f.x, f.y, points, f.type.rarity.color);
+                                
+                                if (gameMode === 'challenge' && caught >= 25) { endGame(); return; }
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    // Normal fish catching without magnet
+                    for (let i = fishes.length - 1; i >= 0; i--) {
+                        const f = fishes[i];
+                        if (f.caught) continue;
+                        const dx = hook.x - f.x, dy = hook.y - f.y;
+                        if (dx*dx + dy*dy < 900) {
+                            f.caught = true;
+                            hook.fish = f;
+                            hook.drop = false;
+                            hook.retract = true;
+                            
+                            // Apply point multiplier based on fish rarity and boosters
+                            let points = f.type.p;
+                            if (boosters.betterRod.active) {
+                                points = Math.floor(points * 1.5); // Better rod gives 50% more points
+                            }
+                            
+                            score += points;
+                            caught++;
+                            
+                            // Add experience based on points
+                            addExperience(points);
+                            
+                            // Add TON Stars based on rarity
+                            const starsToAdd = Math.floor(f.type.rarity.multiplier * 2);
+                            addStars(starsToAdd);
+                            
+                            // Record in collection
+                            recordCaughtFish(f.type.rarity.name);
+                            
+                            // Update tournament score if active
+                            if (seasonTournamentActive) {
+                                updateTournamentScore(points);
+                            }
+                            
+                            updateUI();
+                            
+                            // Add floating score animation with rarity color
+                            addScoreAnim(f.x, f.y, points, f.type.rarity.color);
+                            
+                            if (gameMode === 'challenge' && caught >= 25) { endGame(); return; }
+                            break;
+                        }
                     }
                 }
             }
@@ -345,6 +869,15 @@
             fishes = fishes.filter(f => f.x > -100 && f.x < canvas.width + 100);
             
             spawnFish();
+            
+            // Update boosters
+            updateBoosters();
+            
+            // Regenerate energy slowly during gameplay
+            if (gameState === 'PLAYING' && energy < maxEnergy) {
+                energy = Math.min(maxEnergy, energy + 0.05); // Slow energy regeneration
+                updateUI();
+            }
             
             // DRAW
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -513,7 +1046,7 @@
                 ctx.save();
                 ctx.globalAlpha = alpha;
                 ctx.font = 'bold 24px Arial';
-                ctx.fillStyle = '#FFD700';
+                ctx.fillStyle = a.color || '#FFD700';
                 ctx.strokeStyle = '#000';
                 ctx.lineWidth = 3;
                 ctx.strokeText(a.text, a.x, a.y);
