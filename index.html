@@ -325,7 +325,11 @@
             }
             
             if (hook.retract) {
-                hook.len -= 12; // Slower, realistic pull
+                hook.len -= 14; // Slower, realistic pull
+                // Hook follows boat when retracting
+                const targetX = boat.x + Math.sin(boat.angle) * 15;
+                hook.x += (targetX - hook.x) * 0.15;
+                hook.y = boat.y + 20 + hook.len;
                 if (hook.fish) { hook.fish.x = hook.x; hook.fish.y = hook.y; }
                 if (hook.len <= 0) {
                     hook.retract = false;
