@@ -287,15 +287,19 @@
             for (const b of bubbles) b.y -= b.sp;
             bubbles = bubbles.filter(b => b.y > -10);
             
-            // Hook - v7 logic: simple and no delay
+            // Hook - curved with prediction, "negative delay" at bottom
             if (hook.drop) {
-                hook.len += 12;
+                // Speed up drop
+                hook.len += 15;
                 hook.y = boat.y + 20 + hook.len;
                 hook.x = boat.x + Math.sin(boat.angle) * 20;
                 
-                // Max length - when reached, instantly retract
-                const maxLen = canvas.height - boat.y - 80;
-                if (hook.len >= maxLen) {
+                // "Negative delay" - start retracting BEFORE hitting bottom
+                // This compensates for the frame where it would sit at bottom
+                const maxLen = canvas.height - boat.y - 100;
+                const earlyRetract = 15; // Start 15px early
+                
+                if (hook.len >= maxLen - earlyRetract) {
                     hook.drop = false;
                     hook.retract = true;
                 }
@@ -321,7 +325,7 @@
             }
             
             if (hook.retract) {
-                hook.len -= 12; // v7 speed
+                hook.len -= 15; // Slightly faster retract
                 if (hook.fish) { hook.fish.x = hook.x; hook.fish.y = hook.y; }
                 if (hook.len <= 0) {
                     hook.retract = false;
@@ -431,29 +435,52 @@
                 ctx.restore();
             }
             
-            // Hook line - v7 style: straight but with gradient
+            // Hook line - curved with slack
             if (hook.drop || hook.retract) {
                 const startX = boat.x + Math.sin(boat.angle) * 20;
                 const startY = boat.y + 10;
                 
-                // Simple straight line with gradient
+                // Curved line with control point
+                const midX = (startX + hook.x) / 2;
+                const midY = (startY + hook.y) / 2;
+                const slack = hook.drop ? Math.min(hook.len * 0.15, 30) : Math.max(0, 25 - hook.len * 0.1);
+                const controlX = midX + Math.sin(Date.now() / 150) * slack * 0.3;
+                const controlY = midY + slack;
+                
                 const lineGrad = ctx.createLinearGradient(startX, startY, hook.x, hook.y);
                 lineGrad.addColorStop(0, '#666');
+                lineGrad.addColorStop(0.5, '#888');
                 lineGrad.addColorStop(1, '#AAA');
                 
                 ctx.strokeStyle = lineGrad;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.moveTo(startX, startY);
-                ctx.lineTo(hook.x, hook.y);
+                ctx.quadraticCurveTo(controlX, controlY, hook.x, hook.y);
                 ctx.stroke();
                 
-                // Hook
-                ctx.strokeStyle = '#888';
+                // Hook with shine
+                const hookGrad = ctx.createRadialGradient(hook.x - 2, hook.y - 2, 0, hook.x, hook.y, 10);
+                hookGrad.addColorStop(0, '#CCC');
+                hookGrad.addColorStop(0.5, '#888');
+                hookGrad.addColorStop(1, '#444');
+                ctx.strokeStyle = hookGrad;
                 ctx.lineWidth = 3;
                 ctx.beginPath();
                 ctx.arc(hook.x, hook.y, 8, 0, Math.PI, false);
                 ctx.stroke();
+            }
+            
+            // Splash effect at water entry
+            if (hook.drop && hook.len > 5 && hook.len < 25) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i / 5) * Math.PI;
+                    const r = 15 - hook.len * 0.5;
+                    ctx.beginPath();
+                    ctx.arc(hook.x + Math.cos(angle) * r, boat.y + 25 + Math.sin(angle) * 3, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
             
             // Score animations
