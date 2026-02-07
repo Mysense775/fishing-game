@@ -432,7 +432,15 @@
         
         // Update game
         function update() {
-            if (!gameRunning) return;
+            if (!gameRunning) {
+                return;
+            }
+            
+            // Check win condition first
+            if (gameMode === 'challenge' && fishCaught >= 25) {
+                showGameOver(true);
+                return;
+            }
             
             // Update boat position (auto-move left-right)
             boat.x += boat.speed;
@@ -498,16 +506,11 @@
                             if (window.Telegram?.WebApp?.HapticFeedback) {
                                 window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
                             }
+                            
+                            // Exit collision loop after catching
+                            break;
                         }
                     }
-                }
-                
-                // Check challenge completion (вне цикла столкновений)
-                if (gameMode === 'challenge' && fishCaught >= 25 && !endGamePending) {
-                    endGamePending = true;
-                    setTimeout(() => {
-                        if (endGamePending) endGame();
-                    }, 500);
                 }
             }
             
@@ -962,7 +965,6 @@
         function startTimer() {
             stopTimer();
             timerInterval = setInterval(() => {
-                // Если игра не запущена или уже завершается - выходим
                 if (!gameRunning) {
                     stopTimer();
                     return;
@@ -972,14 +974,8 @@
                 document.getElementById('timer').textContent = formatTime(timeLeft);
                 
                 if (timeLeft <= 0) {
-                    stopTimer(); // Сразу останавливаем таймер
-                    if (gameRunning && !endGamePending) {
-                        endGamePending = true;
-                        // Запускаем завершение игры
-                        requestAnimationFrame(() => {
-                            endGame();
-                        });
-                    }
+                    stopTimer();
+                    showGameOver(false);
                 }
             }, 1000);
         }
@@ -993,28 +989,18 @@
         
         function restartGame() {
             document.getElementById('gameOverScreen').style.display = 'none';
+            gameRunning = false;
             showModeSelect();
         }
         
-        function endGame() {
-            // Защита от повторного вызова
-            if (!gameRunning) return;
-            
+        function showGameOver(success) {
             gameRunning = false;
-            endGamePending = false;
             stopTimer();
-            
-            // Очищаем все интервалы и таймауты
-            fishes = [];
-            particles = [];
-            bubbles = [];
             
             const resultTitle = document.getElementById('resultTitle');
             const resultStats = document.getElementById('resultStats');
             
             if (gameMode === 'challenge') {
-                // Challenge mode results
-                const success = fishCaught >= 25;
                 resultTitle.textContent = success ? '🎉 ПОБЕДА!' : '⏰ Время вышло!';
                 resultTitle.style.color = success ? '#4CAF50' : '#FF6347';
                 
@@ -1029,7 +1015,6 @@
                     localStorage.setItem('fishingChallengeRecord', challengeRecord);
                 }
             } else {
-                // Free play results
                 resultTitle.textContent = '🎣 Отличный улов!';
                 resultTitle.style.color = '#FFD700';
                 
@@ -1057,7 +1042,7 @@
                     mode: gameMode,
                     score: score,
                     caught: fishCaught,
-                    success: gameMode === 'challenge' ? fishCaught >= 25 : true
+                    success: success
                 }));
             }
         }
