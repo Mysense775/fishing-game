@@ -287,18 +287,19 @@
             for (const b of bubbles) b.y -= b.sp;
             bubbles = bubbles.filter(b => b.y > -10);
             
-            // Hook - curved with prediction, "negative delay" at bottom
+            // Hook - realistic physics, heavy sink
             if (hook.drop) {
-                // Speed up drop
-                hook.len += 22;
+                // Slower, realistic fall - like heavy weight
+                hook.len += 8; // Slower drop for realism
                 hook.y = boat.y + 20 + hook.len;
-                hook.x = boat.x + Math.sin(boat.angle) * 20;
                 
-                // "Negative delay" - start retracting BEFORE hitting bottom
-                const maxLen = canvas.height - boat.y - 100;
-                const earlyRetract = 40; // Start 40px early (increased!)
+                // Hook lags behind boat (realistic physics)
+                const targetX = boat.x + Math.sin(boat.angle) * 15;
+                hook.x += (targetX - hook.x) * 0.1; // Smooth follow
                 
-                if (hook.len >= maxLen - earlyRetract) {
+                // Reach bottom
+                const maxLen = canvas.height - boat.y - 80;
+                if (hook.len >= maxLen) {
                     hook.drop = false;
                     hook.retract = true;
                 }
@@ -324,7 +325,7 @@
             }
             
             if (hook.retract) {
-                hook.len -= 22; // Speed 22
+                hook.len -= 12; // Slower, realistic pull
                 if (hook.fish) { hook.fish.x = hook.x; hook.fish.y = hook.y; }
                 if (hook.len <= 0) {
                     hook.retract = false;
@@ -434,20 +435,32 @@
                 ctx.restore();
             }
             
-            // Hook line - curved with slack
+            // Hook line - realistic heavy curve with lag
             if (hook.drop || hook.retract) {
-                const startX = boat.x + Math.sin(boat.angle) * 20;
+                const startX = boat.x + Math.sin(boat.angle) * 10;
                 const startY = boat.y + 10;
                 
-                // Curved line with control point
+                // More realistic curve - heavy line sags
                 const midX = (startX + hook.x) / 2;
                 const midY = (startY + hook.y) / 2;
-                const slack = hook.drop ? Math.min(hook.len * 0.15, 30) : Math.max(0, 25 - hook.len * 0.1);
-                const controlX = midX + Math.sin(Date.now() / 150) * slack * 0.3;
+                
+                // More slack when dropping (gravity), less when retracting
+                let slack;
+                if (hook.drop) {
+                    // Heavy sag when dropping - like real fishing line
+                    slack = Math.min(hook.len * 0.25, 50);
+                } else {
+                    // Taut when retracting
+                    slack = Math.max(0, 30 - hook.len * 0.15);
+                }
+                
+                // Control point creates the belly of the line
+                const controlX = midX + (hook.x - startX) * 0.2; // Lag behind
                 const controlY = midY + slack;
                 
+                // Draw main line
                 const lineGrad = ctx.createLinearGradient(startX, startY, hook.x, hook.y);
-                lineGrad.addColorStop(0, '#666');
+                lineGrad.addColorStop(0, '#555');
                 lineGrad.addColorStop(0.5, '#888');
                 lineGrad.addColorStop(1, '#AAA');
                 
@@ -458,12 +471,16 @@
                 ctx.quadraticCurveTo(controlX, controlY, hook.x, hook.y);
                 ctx.stroke();
                 
-                // Hook with shine
-                const hookGrad = ctx.createRadialGradient(hook.x - 2, hook.y - 2, 0, hook.x, hook.y, 10);
-                hookGrad.addColorStop(0, '#CCC');
-                hookGrad.addColorStop(0.5, '#888');
-                hookGrad.addColorStop(1, '#444');
-                ctx.strokeStyle = hookGrad;
+                // Second line for thickness effect
+                ctx.strokeStyle = 'rgba(200, 200, 200, 0.5)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(startX, startY - 1);
+                ctx.quadraticCurveTo(controlX, controlY - 1, hook.x, hook.y - 1);
+                ctx.stroke();
+                
+                // Hook
+                ctx.strokeStyle = '#777';
                 ctx.lineWidth = 3;
                 ctx.beginPath();
                 ctx.arc(hook.x, hook.y, 8, 0, Math.PI, false);
