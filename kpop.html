@@ -83,6 +83,8 @@
         <canvas id="gameCanvas"></canvas>
         <div id="ui">
             <div class="score-box">⭐ <span id="scoreVal">0</span></div>
+            <div class="score-box" id="comboUI" style="background: linear-gradient(135deg, #FF1493, #00FFFF); font-size: 18px;">🔥 x<span id="comboVal">0</span></div>
+            <div class="score-box" id="rhythmUI" style="background: linear-gradient(135deg, #00FFFF, #9400D3);">🎵 <span id="beatVal">●</span></div>
             <div class="score-box" id="timerUI" style="display:none;">⏱️ <span id="timeVal">02:00</span></div>
             <div class="score-box" id="targetUI" style="display:none;">🎯 <span id="caughtVal">0</span>/25</div>
         </div>
@@ -120,14 +122,23 @@
         let timerId = null;
         let animationId = null;
         
+        // K-pop mechanics
+        let combo = 0;
+        let maxCombo = 0;
+        let rhythmBeat = 0;
+        let perfectTiming = false;
+        let lastCatchTime = 0;
+        let danceMode = true;
+        
         // Entities
-        let boat = { x: 0, y: 120, dir: 1, angle: 0 };
+        let boat = { x: 0, y: 120, dir: 1, angle: 0, danceOffset: 0 };
         let hook = { x: 0, y: 0, len: 0, drop: false, retract: false, fish: null };
         let fishes = [];
         let bubbles = [];
         let clouds = [];
         let seaweed = [];
         let waves = [];
+        let comboAnims = [];
         
         // Setup
         function resize() {
@@ -173,6 +184,42 @@
             document.getElementById('scoreVal').textContent = score;
             document.getElementById('timeVal').textContent = formatTime(timeLeft);
             document.getElementById('caughtVal').textContent = caught;
+            document.getElementById('comboVal').textContent = combo;
+            
+            // Rhythm beat animation
+            const beatEl = document.getElementById('beatVal');
+            if (rhythmBeat % 30 < 5) {
+                beatEl.textContent = '♪';
+                beatEl.style.color = '#00FFFF';
+            } else {
+                beatEl.textContent = '●';
+                beatEl.style.color = '#FF1493';
+            }
+            
+            // Show/hide combo
+            document.getElementById('comboUI').style.display = combo > 1 ? 'block' : 'none';
+        }
+        
+        // K-pop: Add combo
+        function addCombo() {
+            const now = Date.now();
+            if (now - lastCatchTime < 2000) {
+                combo++;
+                if (combo > maxCombo) maxCombo = combo;
+                // Multiplier: x2 at 5 combo, x3 at 10, x4 at 15
+                return Math.floor(combo / 5) + 1;
+            } else {
+                combo = 1;
+                return 1;
+            }
+        }
+        
+        // K-pop: Check perfect timing
+        function checkPerfectTiming() {
+            // Perfect timing when rhythmBeat is near 0
+            const beatPhase = rhythmBeat % 30;
+            perfectTiming = beatPhase < 5 || beatPhase > 25;
+            return perfectTiming;
         }
         
         // Game control
@@ -280,11 +327,22 @@
         function gameLoop() {
             if (gameState !== 'PLAYING') return;
             
+            // K-pop: Update rhythm beat (60 BPM = beat every 30 frames)
+            rhythmBeat++;
+            
             // Update
-            boat.x += 3 * boat.dir;
+            // K-pop: Dancing boat (wave pattern instead of straight)
+            if (danceMode) {
+                boat.danceOffset = Math.sin(rhythmBeat / 10) * 20;
+                boat.x += 3 * boat.dir;
+                boat.y = canvas.height * 0.18 + Math.sin(rhythmBeat / 15) * 10;
+            } else {
+                boat.x += 3 * boat.dir;
+            }
+            
             if (boat.x < 50) { boat.x = 50; boat.dir = 1; }
             if (boat.x > canvas.width - 50) { boat.x = canvas.width - 50; boat.dir = -1; }
-            boat.angle = Math.sin(Date.now() / 1000) * 0.05;
+            boat.angle = Math.sin(rhythmBeat / 20) * 0.1;
             
             for (const c of clouds) { c.x += c.sp; if (c.x > canvas.width + 50) c.x = -50; }
             for (const w of waves) { w.s += w.sp; }
@@ -321,11 +379,25 @@
                         hook.fish = f;
                         hook.drop = false;
                         hook.retract = true;
-                        score += f.type.p;
+                        
+                        // K-pop: Combo system
+                        const comboMult = addCombo();
+                        lastCatchTime = Date.now();
+                        
+                        // K-pop: Perfect timing bonus
+                        const isPerfect = checkPerfectTiming();
+                        const perfectBonus = isPerfect ? 2 : 1;
+                        const totalPoints = f.type.p * comboMult * perfectBonus;
+                        
+                        score += totalPoints;
                         caught++;
                         updateUI();
-                        // Add floating score animation
-                        addScoreAnim(f.x, f.y, f.type.p);
+                        
+                        // K-pop: Floating animation with combo
+                        const bonusText = isPerfect ? 'PERFECT! ' : '';
+                        const comboText = combo > 1 ? ` x${combo}` : '';
+                        addScoreAnim(f.x, f.y, `${bonusText}+${totalPoints}${comboText}`);
+                        
                         if (gameMode === 'challenge' && caught >= 25) { endGame(); return; }
                         break;
                     }
