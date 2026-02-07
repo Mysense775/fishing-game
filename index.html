@@ -203,7 +203,7 @@
         // Game objects
         const boat = {
             x: canvas.width / 2,
-            y: 80,
+            y: 120,  // На поверхности воды
             width: 80,
             height: 50,
             speed: 0,
@@ -337,7 +337,7 @@
             // Update hook
             if (hook.dropping) {
                 hook.length += 8;
-                hook.y = boat.y + 30 + hook.length;
+                hook.y = boat.y + 15 + hook.length;  // Начинаем с нижней части лодки
                 hook.x = boat.x + Math.sin(boat.angle) * 30;
                 
                 hook.maxLength = canvas.height - boat.y - 100;
@@ -383,7 +383,7 @@
             
             if (hook.retracting) {
                 hook.length -= 10;
-                hook.y = boat.y + 30 + hook.length;
+                hook.y = boat.y + 15 + hook.length;
                 
                 if (hook.caught) {
                     hook.caught.x = hook.x;
@@ -461,9 +461,9 @@
                 ctx.fill();
             }
             
-            // Draw water surface
+            // Draw water surface (вода ниже лодки)
             ctx.fillStyle = '#4682B4';
-            ctx.fillRect(0, boat.y + 40, canvas.width, canvas.height - boat.y - 40);
+            ctx.fillRect(0, boat.y + 25, canvas.width, canvas.height - boat.y - 25);
             
             // Draw seaweed
             for (let plant of seaweed) {
@@ -479,16 +479,17 @@
                 ctx.stroke();
             }
             
-            // Draw hook line
+            // Draw hook line (из лодки в воду)
             if (hook.dropping || hook.retracting) {
                 ctx.strokeStyle = '#666';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.moveTo(boat.x + Math.sin(boat.angle) * 30, boat.y + 20);
+                // Начинаем с борта лодки (учитывая смещение -15)
+                ctx.moveTo(boat.x + Math.sin(boat.angle) * 30, boat.y + 5);
                 ctx.lineTo(hook.x, hook.y);
                 ctx.stroke();
                 
-                // Draw hook
+                // Draw hook (крючок)
                 ctx.strokeStyle = '#888';
                 ctx.lineWidth = 3;
                 ctx.beginPath();
@@ -496,40 +497,41 @@
                 ctx.stroke();
             }
             
-            // Draw boat
+            // Draw boat (плавает на поверхности воды)
             ctx.save();
-            ctx.translate(boat.x, boat.y);
+            // Смещаем вверх на 15px чтобы кораблик был на воде, а не над ней
+            ctx.translate(boat.x, boat.y - 15);
             ctx.rotate(boat.angle);
             
-            // Boat body
+            // Boat body (корпус на воде)
             ctx.fillStyle = '#8B4513';
             ctx.beginPath();
-            ctx.moveTo(-40, 0);
-            ctx.lineTo(40, 0);
-            ctx.lineTo(30, 25);
-            ctx.lineTo(-30, 25);
+            ctx.moveTo(-40, 10);  // Нижняя часть погружена в воду
+            ctx.lineTo(40, 10);
+            ctx.lineTo(30, 35);
+            ctx.lineTo(-30, 35);
             ctx.closePath();
             ctx.fill();
             
-            // Boat detail
+            // Boat detail (борта)
             ctx.fillStyle = '#A0522D';
-            ctx.fillRect(-35, 5, 70, 15);
+            ctx.fillRect(-35, 15, 70, 15);
             
-            // Sail
+            // Sail (парус)
             ctx.fillStyle = '#F5F5DC';
             ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(25, -40);
-            ctx.lineTo(0, -35);
+            ctx.moveTo(0, 10);
+            ctx.lineTo(25, -30);
+            ctx.lineTo(0, -25);
             ctx.closePath();
             ctx.fill();
             
-            // Mast
+            // Mast (мачта)
             ctx.strokeStyle = '#654321';
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(0, -45);
+            ctx.moveTo(0, 10);
+            ctx.lineTo(0, -35);
             ctx.stroke();
             
             ctx.restore();
@@ -567,11 +569,11 @@
             ctx.globalAlpha = 1;
             
             // Draw water overlay (gradient)
-            const gradient = ctx.createLinearGradient(0, boat.y + 40, 0, canvas.height);
+            const gradient = ctx.createLinearGradient(0, boat.y + 25, 0, canvas.height);
             gradient.addColorStop(0, 'rgba(70, 130, 180, 0.3)');
             gradient.addColorStop(1, 'rgba(25, 25, 112, 0.5)');
             ctx.fillStyle = gradient;
-            ctx.fillRect(0, boat.y + 40, canvas.width, canvas.height - boat.y - 40);
+            ctx.fillRect(0, boat.y + 25, canvas.width, canvas.height - boat.y - 25);
         }
         
         // Game loop
