@@ -50,12 +50,14 @@
         }
         
         .score-box {
-            background: rgba(0, 0, 0, 0.6);
+            background: rgba(0, 0, 0, 0.4);
             color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-size: 18px;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 14px;
             font-weight: bold;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
         
         #startScreen, #gameOverScreen {
@@ -237,10 +239,10 @@
         <div id="waves"></div>
         
         <div id="ui">
-            <div class="score-box">🐟 Рыбок: <span id="score">0</span></div>
+            <div class="score-box">⭐ Очки: <span id="score">0</span></div>
             <div class="score-box" id="timerBox" style="display:none;">⏱️ <span id="timer">02:00</span></div>
             <div class="score-box" id="targetBox" style="display:none;">🎯 <span id="caught">0</span>/25</div>
-            <div class="score-box" id="recordBox">🏆 Рекорд: <span id="highScore">0</span></div>
+            <div class="score-box" id="recordBox">🏆 Рек: <span id="highScore">0</span></div>
         </div>
         
         <div id="startScreen">
@@ -290,6 +292,7 @@
         let fishCaught = 0;
         let timeLeft = 120; // 2 минуты в секундах
         let timerInterval = null;
+        let endGamePending = false; // Флаг для отложенного завершения
         let highScore = localStorage.getItem('fishingHighScore') || 0;
         let challengeRecord = localStorage.getItem('fishingChallengeRecord') || 0;
         document.getElementById('highScore').textContent = highScore;
@@ -489,9 +492,12 @@
                             else if (centerBonus > 0.4) comboText += ' ⭐ GREAT!';
                             createCombo(fish.x, fish.y - 30, comboText);
                             
-                            // Check challenge completion
-                            if (gameMode === 'challenge' && fishCaught >= 25) {
-                                endGame();
+                            // Check challenge completion (отложенный вызов чтобы избежать зависания)
+                            if (gameMode === 'challenge' && fishCaught >= 25 && !endGamePending) {
+                                endGamePending = true;
+                                setTimeout(() => {
+                                    endGame();
+                                }, 100);
                             }
                             
                             // Telegram Web App vibration
@@ -913,6 +919,7 @@
             document.getElementById('modeSelectScreen').style.display = 'none';
             document.getElementById('gameOverScreen').style.display = 'none';
             gameRunning = true;
+            endGamePending = false;
             score = 0;
             fishCaught = 0;
             fishes = [];
@@ -988,8 +995,8 @@
                 resultTitle.style.color = success ? '#4CAF50' : '#FF6347';
                 
                 resultStats.innerHTML = `
-                    🐟 Поймано рыбок: <span class="${success ? 'success' : 'fail'}">${fishCaught}</span> / 25<br>
-                    ⭐ Всего очков: <b>${score}</b><br>
+                    🎯 Поймано: <span class="${success ? 'success' : 'fail'}">${fishCaught}</span> / 25<br>
+                    ⭐ Очки: <b>${score}</b><br>
                     ${success ? '<span class="success">🏆 Испытание пройдено!</span>' : '<span class="fail">Попробуй ещё раз!</span>'}
                 `;
                 
@@ -1003,8 +1010,8 @@
                 resultTitle.style.color = '#FFD700';
                 
                 resultStats.innerHTML = `
-                    🐟 Поймано рыбок: <b>${fishCaught}</b><br>
-                    ⭐ Всего очков: <b>${score}</b>
+                    🎯 Поймано: <b>${fishCaught}</b><br>
+                    ⭐ Очки: <b>${score}</b>
                 `;
                 
                 if (score > highScore) {
