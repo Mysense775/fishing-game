@@ -168,6 +168,16 @@
             document.getElementById('caughtVal').textContent = caught;
         }
         
+        // Weather system (MUST be before startGame)
+        const WEATHER = {
+            SUNNY: { name: '☀️', speedMod: 1.0, rareBonus: 0, color: '#87CEEB' },
+            RAIN: { name: '🌧️', speedMod: 1.2, rareBonus: 0.05, color: '#4a5568' },
+            FOG: { name: '🌫️', speedMod: 0.8, rareBonus: 0.1, color: '#718096' },
+            NIGHT: { name: '🌙', speedMod: 1.0, rareBonus: 0.15, color: '#1a202c' }
+        };
+        let currentWeather = WEATHER.SUNNY;
+        let weatherTimer = 0;
+        
         // Game control
         function startGame(mode) {
             gameMode = mode;
@@ -232,16 +242,6 @@
         
         // Score animations array
         let scoreAnims = [];
-        
-        // Weather system
-        const WEATHER = {
-            SUNNY: { name: '☀️', speedMod: 1.0, rareBonus: 0, color: '#87CEEB' },
-            RAIN: { name: '🌧️', speedMod: 1.2, rareBonus: 0.05, color: '#4a5568' },
-            FOG: { name: '🌫️', speedMod: 0.8, rareBonus: 0.1, color: '#718096' },
-            NIGHT: { name: '🌙', speedMod: 1.0, rareBonus: 0.15, color: '#1a202c' }
-        };
-        let currentWeather = WEATHER.SUNNY;
-        let weatherTimer = 0;
         
         // 30+ Fish types with rarity
         const fishTypes = {
