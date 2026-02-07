@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🎣 Поймай рыбку!</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(180deg, #87CEEB 0%, #4682B4 50%, #1E3A5F 100%);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+        
+        .score-box {
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        #gameOverScreen {
+            display: none;
+        }
+        
+        h1 {
+            color: #FFD700;
+            font-size: 36px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            border: none;
+            padding: 20px 50px;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+            color: #333;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6);
+        }
+        
+        .btn:active {
+            transform: scale(0.95);
+        }
+        
+        .instructions {
+            color: white;
+            margin-top: 30px;
+            text-align: center;
+            font-size: 16px;
+            line-height: 1.6;
+            max-width: 80%;
+        }
+        
+        .fish-icon {
+            font-size: 40px;
+        }
+        
+        #finalScore {
+            color: #FFD700;
+            font-size: 48px;
+            margin: 20px 0;
+        }
+        
+        #waves {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 100'%3E%3Cpath fill='%23ffffff20' d='M0,50 C360,100 720,0 1080,50 C1260,75 1380,25 1440,50 L1440,100 L0,100 Z'/%3E%3C/svg%3E") repeat-x;
+            animation: wave 10s linear infinite;
+            pointer-events: none;
+        }
+        
+        @keyframes wave {
+            0% { background-position-x: 0; }
+            100% { background-position-x: 1440px; }
+        }
+        
+        .combo {
+            position: absolute;
+            color: #FFD700;
+            font-size: 24px;
+            font-weight: bold;
+            animation: comboAnim 1s ease-out forwards;
+            pointer-events: none;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        @keyframes comboAnim {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-50px) scale(1.5); }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="waves"></div>
+        
+        <div id="ui">
+            <div class="score-box">🐟 Рыбок: <span id="score">0</span></div>
+            <div class="score-box">🏆 Рекорд: <span id="highScore">0</span></div>
+        </div>
+        
+        <div id="startScreen">
+            <div class="fish-icon">🎣</div>
+            <h1>Поймай рыбку!</h1>
+            <button class="btn" onclick="startGame()">ИГРАТЬ</button>
+            <div class="instructions">
+                🚢 Кораблик движется влево-вправо<br>
+                🎣 Нажми, чтобы закинуть удочку<br>
+                🐟 Попади крючком по рыбке!<br>
+                ⚡ Чем ближе к центру — тем больше очков!
+            </div>
+        </div>
+        
+        <div id="gameOverScreen">
+            <div class="fish-icon">🐟</div>
+            <h1>Отличный улов!</h1>
+            <div id="finalScore">0</div>
+            <button class="btn" onclick="restartGame()">ЕЩЁ РАЗ</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game state
+        let gameRunning = false;
+        let score = 0;
+        let highScore = localStorage.getItem('fishingHighScore') || 0;
+        document.getElementById('highScore').textContent = highScore;
+        
+        // Canvas setup
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Game objects
+        const boat = {
+            x: canvas.width / 2,
+            y: 80,
+            width: 80,
+            height: 50,
+            speed: 0,
+            maxSpeed: 5,
+            angle: 0
+        };
+        
+        const hook = {
+            x: 0,
+            y: 0,
+            length: 0,
+            maxLength: 0,
+            dropping: false,
+            retracting: false,
+            caught: null
+        };
+        
+        let fishes = [];
+        let particles = [];
+        let bubbles = [];
+        let clouds = [];
+        let seaweed = [];
+        
+        // Fish types
+        const fishTypes = [
+            { emoji: '🐟', speed: 2, score: 10, color: '#4169E1' },
+            { emoji: '🐠', speed: 3, score: 20, color: '#FF6347' },
+            { emoji: '🐡', speed: 1.5, score: 30, color: '#FFD700' },
+            { emoji: '🦈', speed: 4, score: 50, color: '#708090' },
+            { emoji: '🐙', speed: 2.5, score: 40, color: '#800080' },
+            { emoji: '🦑', speed: 3.5, score: 35, color: '#FF1493' }
+        ];
+        
+        // Initialize clouds
+        for (let i = 0; i < 5; i++) {
+            clouds.push({
+                x: Math.random() * canvas.width,
+                y: 20 + Math.random() * 60,
+                speed: 0.2 + Math.random() * 0.3,
+                size: 30 + Math.random() * 40
+            });
+        }
+        
+        // Initialize seaweed
+        for (let i = 0; i < 8; i++) {
+            seaweed.push({
+                x: Math.random() * canvas.width,
+                height: 50 + Math.random() * 80,
+                offset: Math.random() * Math.PI * 2,
+                speed: 0.02 + Math.random() * 0.02
+            });
+        }
+        
+        // Spawn fish
+        function spawnFish() {
+            if (fishes.length < 5 && Math.random() < 0.02) {
+                const type = fishTypes[Math.floor(Math.random() * fishTypes.length)];
+                const direction = Math.random() > 0.5 ? 1 : -1;
+                fishes.push({
+                    x: direction === 1 ? -50 : canvas.width + 50,
+                    y: 200 + Math.random() * (canvas.height - 300),
+                    type: type,
+                    direction: direction,
+                    wiggle: Math.random() * Math.PI * 2,
+                    caught: false
+                });
+            }
+        }
+        
+        // Spawn bubbles
+        function spawnBubbles() {
+            if (Math.random() < 0.05) {
+                bubbles.push({
+                    x: Math.random() * canvas.width,
+                    y: canvas.height,
+                    size: 3 + Math.random() * 8,
+                    speed: 1 + Math.random() * 2,
+                    wobble: Math.random() * Math.PI * 2
+                });
+            }
+        }
+        
+        // Create splash particles
+        function createSplash(x, y, color = '#ffffff') {
+            for (let i = 0; i < 10; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: -Math.random() * 5 - 2,
+                    life: 30,
+                    color: color,
+                    size: 3 + Math.random() * 5
+                });
+            }
+        }
+        
+        // Create combo text
+        function createCombo(x, y, text) {
+            const el = document.createElement('div');
+            el.className = 'combo';
+            el.textContent = text;
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1000);
+        }
+        
+        // Update game
+        function update() {
+            if (!gameRunning) return;
+            
+            // Update boat position (auto-move left-right)
+            boat.x += boat.speed;
+            if (boat.x < boat.width/2) {
+                boat.x = boat.width/2;
+                boat.speed = boat.maxSpeed;
+            }
+            if (boat.x > canvas.width - boat.width/2) {
+                boat.x = canvas.width - boat.width/2;
+                boat.speed = -boat.maxSpeed;
+            }
+            
+            // Boat idle movement
+            if (boat.speed === 0) {
+                boat.speed = boat.maxSpeed;
+            }
+            
+            boat.angle = Math.sin(Date.now() / 1000) * 0.1;
+            
+            // Update hook
+            if (hook.dropping) {
+                hook.length += 8;
+                hook.y = boat.y + 30 + hook.length;
+                hook.x = boat.x + Math.sin(boat.angle) * 30;
+                
+                hook.maxLength = canvas.height - boat.y - 100;
+                
+                if (hook.length >= hook.maxLength) {
+                    hook.dropping = false;
+                    hook.retracting = true;
+                }
+                
+                // Check collision with fish
+                for (let fish of fishes) {
+                    if (!fish.caught) {
+                        const dx = hook.x - fish.x;
+                        const dy = hook.y - fish.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (dist < 30) {
+                            fish.caught = true;
+                            hook.caught = fish;
+                            hook.dropping = false;
+                            hook.retracting = true;
+                            createSplash(fish.x, fish.y, fish.type.color);
+                            
+                            // Calculate score based on precision
+                            const centerBonus = Math.max(0, 1 - dist / 30);
+                            const points = Math.floor(fish.type.score * (1 + centerBonus));
+                            score += points;
+                            document.getElementById('score').textContent = score;
+                            
+                            let comboText = `+${points}`;
+                            if (centerBonus > 0.7) comboText += ' 🎯 PERFECT!';
+                            else if (centerBonus > 0.4) comboText += ' ⭐ GREAT!';
+                            createCombo(fish.x, fish.y - 30, comboText);
+                            
+                            // Telegram Web App vibration
+                            if (window.Telegram?.WebApp?.HapticFeedback) {
+                                window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (hook.retracting) {
+                hook.length -= 10;
+                hook.y = boat.y + 30 + hook.length;
+                
+                if (hook.caught) {
+                    hook.caught.x = hook.x;
+                    hook.caught.y = hook.y + 10;
+                }
+                
+                if (hook.length <= 0) {
+                    hook.retracting = false;
+                    hook.length = 0;
+                    if (hook.caught) {
+                        fishes = fishes.filter(f => f !== hook.caught);
+                        hook.caught = null;
+                    }
+                }
+            }
+            
+            // Update fishes
+            for (let fish of fishes) {
+                if (!fish.caught) {
+                    fish.x += fish.type.speed * fish.direction;
+                    fish.wiggle += 0.15;
+                }
+            }
+            
+            // Remove off-screen fish
+            fishes = fishes.filter(f => 
+                f.caught || (f.x > -100 && f.x < canvas.width + 100)
+            );
+            
+            // Update bubbles
+            spawnBubbles();
+            for (let bubble of bubbles) {
+                bubble.y -= bubble.speed;
+                bubble.wobble += 0.1;
+                bubble.x += Math.sin(bubble.wobble) * 0.5;
+            }
+            bubbles = bubbles.filter(b => b.y > -20);
+            
+            // Update clouds
+            for (let cloud of clouds) {
+                cloud.x += cloud.speed;
+                if (cloud.x > canvas.width + cloud.size) {
+                    cloud.x = -cloud.size;
+                }
+            }
+            
+            // Update seaweed
+            for (let plant of seaweed) {
+                plant.offset += plant.speed;
+            }
+            
+            // Update particles
+            for (let p of particles) {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.3;
+                p.life--;
+            }
+            particles = particles.filter(p => p.life > 0);
+            
+            spawnFish();
+        }
+        
+        // Draw game
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw clouds
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            for (let cloud of clouds) {
+                ctx.beginPath();
+                ctx.arc(cloud.x, cloud.y, cloud.size, 0, Math.PI * 2);
+                ctx.arc(cloud.x + cloud.size * 0.8, cloud.y - cloud.size * 0.3, cloud.size * 0.8, 0, Math.PI * 2);
+                ctx.arc(cloud.x - cloud.size * 0.8, cloud.y - cloud.size * 0.3, cloud.size * 0.8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Draw water surface
+            ctx.fillStyle = '#4682B4';
+            ctx.fillRect(0, boat.y + 40, canvas.width, canvas.height - boat.y - 40);
+            
+            // Draw seaweed
+            for (let plant of seaweed) {
+                ctx.strokeStyle = '#228B22';
+                ctx.lineWidth = 8;
+                ctx.beginPath();
+                ctx.moveTo(plant.x, canvas.height);
+                for (let i = 0; i < 10; i++) {
+                    const y = canvas.height - (plant.height / 10) * i;
+                    const wobble = Math.sin(plant.offset + i * 0.5) * 10;
+                    ctx.lineTo(plant.x + wobble, y);
+                }
+                ctx.stroke();
+            }
+            
+            // Draw hook line
+            if (hook.dropping || hook.retracting) {
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(boat.x + Math.sin(boat.angle) * 30, boat.y + 20);
+                ctx.lineTo(hook.x, hook.y);
+                ctx.stroke();
+                
+                // Draw hook
+                ctx.strokeStyle = '#888';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(hook.x, hook.y, 8, 0, Math.PI, false);
+                ctx.stroke();
+            }
+            
+            // Draw boat
+            ctx.save();
+            ctx.translate(boat.x, boat.y);
+            ctx.rotate(boat.angle);
+            
+            // Boat body
+            ctx.fillStyle = '#8B4513';
+            ctx.beginPath();
+            ctx.moveTo(-40, 0);
+            ctx.lineTo(40, 0);
+            ctx.lineTo(30, 25);
+            ctx.lineTo(-30, 25);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Boat detail
+            ctx.fillStyle = '#A0522D';
+            ctx.fillRect(-35, 5, 70, 15);
+            
+            // Sail
+            ctx.fillStyle = '#F5F5DC';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(25, -40);
+            ctx.lineTo(0, -35);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Mast
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -45);
+            ctx.stroke();
+            
+            ctx.restore();
+            
+            // Draw fishes
+            for (let fish of fishes) {
+                const wiggle = Math.sin(fish.wiggle) * 5;
+                ctx.font = '30px Arial';
+                ctx.textAlign = 'center';
+                ctx.save();
+                ctx.translate(fish.x, fish.y + wiggle);
+                ctx.scale(fish.direction, 1);
+                ctx.fillText(fish.type.emoji, 0, 10);
+                ctx.restore();
+            }
+            
+            // Draw bubbles
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            for (let bubble of bubbles) {
+                ctx.beginPath();
+                ctx.arc(bubble.x, bubble.y, bubble.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+            
+            // Draw particles
+            for (let p of particles) {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life / 30;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            
+            // Draw water overlay (gradient)
+            const gradient = ctx.createLinearGradient(0, boat.y + 40, 0, canvas.height);
+            gradient.addColorStop(0, 'rgba(70, 130, 180, 0.3)');
+            gradient.addColorStop(1, 'rgba(25, 25, 112, 0.5)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, boat.y + 40, canvas.width, canvas.height - boat.y - 40);
+        }
+        
+        // Game loop
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Input handling
+        function dropHook() {
+            if (!gameRunning) return;
+            if (!hook.dropping && !hook.retracting) {
+                hook.dropping = true;
+                hook.length = 0;
+                
+                // Haptic feedback
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                }
+            }
+        }
+        
+        canvas.addEventListener('mousedown', dropHook);
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            dropHook();
+        });
+        
+        // Keyboard controls (for testing)
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                dropHook();
+            }
+        });
+        
+        // Game control functions
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            gameRunning = true;
+            score = 0;
+            document.getElementById('score').textContent = score;
+            fishes = [];
+            boat.speed = boat.maxSpeed;
+            
+            // Init Telegram Web App
+            if (window.Telegram?.WebApp) {
+                window.Telegram.WebApp.expand();
+                window.Telegram.WebApp.enableClosingConfirmation();
+            }
+        }
+        
+        function restartGame() {
+            document.getElementById('gameOverScreen').style.display = 'none';
+            gameRunning = true;
+            score = 0;
+            document.getElementById('score').textContent = score;
+            fishes = [];
+            boat.speed = boat.maxSpeed;
+        }
+        
+        function endGame() {
+            gameRunning = false;
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOverScreen').style.display = 'flex';
+            
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('fishingHighScore', highScore);
+                document.getElementById('highScore').textContent = highScore;
+            }
+            
+            // Send score to Telegram bot
+            if (window.Telegram?.WebApp) {
+                window.Telegram.WebApp.sendData(JSON.stringify({
+                    action: 'game_over',
+                    score: score
+                }));
+            }
+        }
+        
+        // Start loop
+        gameLoop();
+    </script>
+</body>
+</html>
