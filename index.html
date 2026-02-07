@@ -962,16 +962,24 @@
         function startTimer() {
             stopTimer();
             timerInterval = setInterval(() => {
-                if (!gameRunning || endGamePending) return;
+                // Если игра не запущена или уже завершается - выходим
+                if (!gameRunning) {
+                    stopTimer();
+                    return;
+                }
                 
                 timeLeft--;
                 document.getElementById('timer').textContent = formatTime(timeLeft);
                 
-                if (timeLeft <= 0 && !endGamePending) {
-                    endGamePending = true;
-                    setTimeout(() => {
-                        endGame();
-                    }, 100);
+                if (timeLeft <= 0) {
+                    stopTimer(); // Сразу останавливаем таймер
+                    if (gameRunning && !endGamePending) {
+                        endGamePending = true;
+                        // Запускаем завершение игры
+                        requestAnimationFrame(() => {
+                            endGame();
+                        });
+                    }
                 }
             }, 1000);
         }
@@ -989,14 +997,17 @@
         }
         
         function endGame() {
-            if (!endGamePending && gameMode !== 'challenge') return;
-            
             // Защита от повторного вызова
             if (!gameRunning) return;
             
             gameRunning = false;
-            stopTimer();
             endGamePending = false;
+            stopTimer();
+            
+            // Очищаем все интервалы и таймауты
+            fishes = [];
+            particles = [];
+            bubbles = [];
             
             const resultTitle = document.getElementById('resultTitle');
             const resultStats = document.getElementById('resultStats');
