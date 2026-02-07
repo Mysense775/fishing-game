@@ -272,13 +272,16 @@
             for (const b of bubbles) b.y -= b.sp;
             bubbles = bubbles.filter(b => b.y > -10);
             
-            // Hook - faster drop and retract
+            // Hook - instant drop and retract, no delay
             if (hook.drop) {
-                hook.len += 15; // Быстрее опускается
+                hook.len += 20; // Мгновенно опускается
                 hook.y = boat.y + 20 + hook.len;
                 
-                // Быстрее начинает подниматься (не до самого дна)
-                if (hook.y > canvas.height - 100) { hook.drop = false; hook.retract = true; }
+                // Мгновенно начинает подниматься - никакой задержки!
+                if (hook.y > boat.y + 150) { 
+                    hook.drop = false; 
+                    hook.retract = true; 
+                }
                 
                 for (let i = fishes.length - 1; i >= 0; i--) {
                     const f = fishes[i];
@@ -409,11 +412,18 @@
                 ctx.restore();
             }
             
-            // Hook line with animation effect
+            // Hook line - curved like real fishing line
             if (hook.drop || hook.retract) {
-                // Line from boat
                 const startX = boat.x + Math.sin(boat.angle) * 20;
                 const startY = boat.y + 10;
+                
+                // Create curve control point for realistic slack
+                const midX = (startX + hook.x) / 2;
+                const midY = (startY + hook.y) / 2;
+                // Add slack based on hook movement
+                const slack = hook.drop ? hook.len * 0.1 : Math.max(0, 20 - hook.len * 0.1);
+                const controlX = midX + Math.sin(Date.now() / 200) * slack;
+                const controlY = midY + slack;
                 
                 // Gradient line
                 const lineGrad = ctx.createLinearGradient(startX, startY, hook.x, hook.y);
@@ -421,11 +431,12 @@
                 lineGrad.addColorStop(0.5, '#888');
                 lineGrad.addColorStop(1, '#AAA');
                 
+                // Draw curved line (quadratic bezier)
                 ctx.strokeStyle = lineGrad;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.moveTo(startX, startY);
-                ctx.lineTo(hook.x, hook.y);
+                ctx.quadraticCurveTo(controlX, controlY, hook.x, hook.y);
                 ctx.stroke();
                 
                 // Hook with shine
