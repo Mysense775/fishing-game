@@ -155,6 +155,80 @@
             0% { opacity: 1; transform: translateY(0) scale(1); }
             100% { opacity: 0; transform: translateY(-50px) scale(1.5); }
         }
+        
+        .mode-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .mode-btn {
+            background: linear-gradient(135deg, #4CAF50, #2E7D32);
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+            color: white;
+        }
+        
+        .mode-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
+        }
+        
+        .mode-btn.challenge {
+            background: linear-gradient(135deg, #FF6347, #D32F2F);
+            box-shadow: 0 4px 15px rgba(255, 99, 71, 0.4);
+        }
+        
+        .mode-btn.challenge:hover {
+            box-shadow: 0 6px 20px rgba(255, 99, 71, 0.6);
+        }
+        
+        .timer-box {
+            background: linear-gradient(135deg, #FF6347, #D32F2F);
+        }
+        
+        .target-box {
+            background: linear-gradient(135deg, #4CAF50, #2E7D32);
+        }
+        
+        .result-stats {
+            color: white;
+            font-size: 20px;
+            margin: 15px 0;
+            text-align: center;
+            line-height: 1.8;
+        }
+        
+        .result-stats .success {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .result-stats .fail {
+            color: #FF6347;
+            font-weight: bold;
+        }
+        
+        #modeSelectScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
     </style>
 </head>
 <body>
@@ -164,13 +238,15 @@
         
         <div id="ui">
             <div class="score-box">🐟 Рыбок: <span id="score">0</span></div>
-            <div class="score-box">🏆 Рекорд: <span id="highScore">0</span></div>
+            <div class="score-box" id="timerBox" style="display:none;">⏱️ <span id="timer">02:00</span></div>
+            <div class="score-box" id="targetBox" style="display:none;">🎯 <span id="caught">0</span>/25</div>
+            <div class="score-box" id="recordBox">🏆 Рекорд: <span id="highScore">0</span></div>
         </div>
         
         <div id="startScreen">
             <div class="fish-icon">🎣</div>
             <h1>Поймай рыбку!</h1>
-            <button class="btn" onclick="startGame()">ИГРАТЬ</button>
+            <button class="btn" onclick="showModeSelect()">ИГРАТЬ</button>
             <div class="instructions">
                 🚢 Кораблик движется влево-вправо<br>
                 🎣 Нажми, чтобы закинуть удочку<br>
@@ -179,11 +255,27 @@
             </div>
         </div>
         
+        <div id="modeSelectScreen" style="display:none;">
+            <div class="fish-icon">🎮</div>
+            <h1>Выбери режим</h1>
+            <div class="mode-buttons">
+                <button class="mode-btn" onclick="startGame('free')">🎣 СВОБОДНАЯ ИГРА</button>
+                <button class="mode-btn challenge" onclick="startGame('challenge')">🏆 ИСПЫТАНИЕ<br><small>25 рыбок за 2 минуты!</small></button>
+            </div>
+            <div class="instructions">
+                <b>Свободная игра</b> — лови сколько хочешь<br>
+                <b>Испытание</b> — поймай 25 рыбок за 2 минуты!
+            </div>
+        </div>
+        
         <div id="gameOverScreen">
             <div class="fish-icon">🐟</div>
-            <h1>Отличный улов!</h1>
-            <div id="finalScore">0</div>
-            <button class="btn" onclick="restartGame()">ЕЩЁ РАЗ</button>
+            <h1 id="resultTitle">Отличный улов!</h1>
+            <div class="result-stats" id="resultStats">
+                🐟 Поймано рыбок: <span id="finalCaught">0</span><br>
+                ⭐ Всего очков: <span id="finalScore">0</span>
+            </div>
+            <button class="btn" onclick="showModeSelect()">ЕЩЁ РАЗ</button>
         </div>
     </div>
 
@@ -193,8 +285,13 @@
         
         // Game state
         let gameRunning = false;
+        let gameMode = 'free'; // 'free' или 'challenge'
         let score = 0;
+        let fishCaught = 0;
+        let timeLeft = 120; // 2 минуты в секундах
+        let timerInterval = null;
         let highScore = localStorage.getItem('fishingHighScore') || 0;
+        let challengeRecord = localStorage.getItem('fishingChallengeRecord') || 0;
         document.getElementById('highScore').textContent = highScore;
         
         // Canvas setup
@@ -383,12 +480,19 @@
                             const centerBonus = Math.max(0, 1 - dist / 30);
                             const points = Math.floor(fish.type.score * (1 + centerBonus));
                             score += points;
+                            fishCaught++;
                             document.getElementById('score').textContent = score;
+                            document.getElementById('caught').textContent = fishCaught;
                             
                             let comboText = `+${points}`;
                             if (centerBonus > 0.7) comboText += ' 🎯 PERFECT!';
                             else if (centerBonus > 0.4) comboText += ' ⭐ GREAT!';
                             createCombo(fish.x, fish.y - 30, comboText);
+                            
+                            // Check challenge completion
+                            if (gameMode === 'challenge' && fishCaught >= 25) {
+                                endGame();
+                            }
                             
                             // Telegram Web App vibration
                             if (window.Telegram?.WebApp?.HapticFeedback) {
@@ -797,13 +901,41 @@
         });
         
         // Game control functions
-        function startGame() {
+        function showModeSelect() {
             document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('gameOverScreen').style.display = 'none';
+            document.getElementById('modeSelectScreen').style.display = 'flex';
+            stopTimer();
+        }
+        
+        function startGame(mode) {
+            gameMode = mode;
+            document.getElementById('modeSelectScreen').style.display = 'none';
+            document.getElementById('gameOverScreen').style.display = 'none';
             gameRunning = true;
             score = 0;
-            document.getElementById('score').textContent = score;
+            fishCaught = 0;
             fishes = [];
             boat.speed = boat.maxSpeed;
+            
+            // Reset UI
+            document.getElementById('score').textContent = score;
+            document.getElementById('caught').textContent = fishCaught;
+            
+            // Setup mode-specific UI
+            if (mode === 'challenge') {
+                timeLeft = 120; // 2 минуты
+                document.getElementById('timerBox').style.display = 'block';
+                document.getElementById('targetBox').style.display = 'block';
+                document.getElementById('recordBox').style.display = 'none';
+                document.getElementById('timer').textContent = formatTime(timeLeft);
+                startTimer();
+            } else {
+                // Free play mode
+                document.getElementById('timerBox').style.display = 'none';
+                document.getElementById('targetBox').style.display = 'none';
+                document.getElementById('recordBox').style.display = 'block';
+            }
             
             // Init Telegram Web App
             if (window.Telegram?.WebApp) {
@@ -812,31 +944,89 @@
             }
         }
         
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        function startTimer() {
+            stopTimer();
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').textContent = formatTime(timeLeft);
+                
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+        
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+        
         function restartGame() {
             document.getElementById('gameOverScreen').style.display = 'none';
-            gameRunning = true;
-            score = 0;
-            document.getElementById('score').textContent = score;
-            fishes = [];
-            boat.speed = boat.maxSpeed;
+            showModeSelect();
         }
         
         function endGame() {
             gameRunning = false;
+            stopTimer();
+            
+            const resultTitle = document.getElementById('resultTitle');
+            const resultStats = document.getElementById('resultStats');
+            
+            if (gameMode === 'challenge') {
+                // Challenge mode results
+                const success = fishCaught >= 25;
+                resultTitle.textContent = success ? '🎉 ПОБЕДА!' : '⏰ Время вышло!';
+                resultTitle.style.color = success ? '#4CAF50' : '#FF6347';
+                
+                resultStats.innerHTML = `
+                    🐟 Поймано рыбок: <span class="${success ? 'success' : 'fail'}">${fishCaught}</span> / 25<br>
+                    ⭐ Всего очков: <b>${score}</b><br>
+                    ${success ? '<span class="success">🏆 Испытание пройдено!</span>' : '<span class="fail">Попробуй ещё раз!</span>'}
+                `;
+                
+                if (success && score > challengeRecord) {
+                    challengeRecord = score;
+                    localStorage.setItem('fishingChallengeRecord', challengeRecord);
+                }
+            } else {
+                // Free play results
+                resultTitle.textContent = '🎣 Отличный улов!';
+                resultTitle.style.color = '#FFD700';
+                
+                resultStats.innerHTML = `
+                    🐟 Поймано рыбок: <b>${fishCaught}</b><br>
+                    ⭐ Всего очков: <b>${score}</b>
+                `;
+                
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('fishingHighScore', highScore);
+                    document.getElementById('highScore').textContent = highScore;
+                    resultStats.innerHTML += '<br><span class="success">🏆 Новый рекорд!</span>';
+                }
+            }
+            
+            document.getElementById('finalCaught').textContent = fishCaught;
             document.getElementById('finalScore').textContent = score;
             document.getElementById('gameOverScreen').style.display = 'flex';
-            
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem('fishingHighScore', highScore);
-                document.getElementById('highScore').textContent = highScore;
-            }
             
             // Send score to Telegram bot
             if (window.Telegram?.WebApp) {
                 window.Telegram.WebApp.sendData(JSON.stringify({
                     action: 'game_over',
-                    score: score
+                    mode: gameMode,
+                    score: score,
+                    caught: fishCaught,
+                    success: gameMode === 'challenge' ? fishCaught >= 25 : true
                 }));
             }
         }
