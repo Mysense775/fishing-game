@@ -75,6 +75,7 @@
         <canvas id="gameCanvas"></canvas>
         <div id="ui">
             <div class="score-box">⭐ <span id="scoreVal">0</span></div>
+            <div class="score-box" id="weatherUI">☀️</div>
             <div class="score-box" id="timerUI" style="display:none;">⏱️ <span id="timeVal">02:00</span></div>
             <div class="score-box" id="targetUI" style="display:none;">🎯 <span id="caughtVal">0</span>/25</div>
         </div>
@@ -180,9 +181,14 @@
             hook = { x: 0, y: 0, len: 0, drop: false, retract: false, fish: null };
             boat.x = canvas.width / 2;
             
+            // Change weather every 3 games
+            weatherTimer++;
+            if (weatherTimer % 3 === 0) changeWeather();
+            
             document.getElementById('timerUI').style.display = mode === 'challenge' ? 'block' : 'none';
             document.getElementById('targetUI').style.display = mode === 'challenge' ? 'block' : 'none';
             updateUI();
+            updateWeatherUI();
             showScreen(null);
             
             if (mode === 'challenge') {
@@ -227,17 +233,96 @@
         // Score animations array
         let scoreAnims = [];
         
-        // Spawn colorful fish
+        // Weather system
+        const WEATHER = {
+            SUNNY: { name: '☀️', speedMod: 1.0, rareBonus: 0, color: '#87CEEB' },
+            RAIN: { name: '🌧️', speedMod: 1.2, rareBonus: 0.05, color: '#4a5568' },
+            FOG: { name: '🌫️', speedMod: 0.8, rareBonus: 0.1, color: '#718096' },
+            NIGHT: { name: '🌙', speedMod: 1.0, rareBonus: 0.15, color: '#1a202c' }
+        };
+        let currentWeather = WEATHER.SUNNY;
+        let weatherTimer = 0;
+        
+        // 30+ Fish types with rarity
+        const fishTypes = {
+            common: [
+                {e: '🐟', s: 2, p: 10, name: 'blue', weight: 60},
+                {e: '🐠', s: 3, p: 15, name: 'yellow', weight: 55},
+                {e: '🐡', s: 1.5, p: 20, name: 'puffer', weight: 50},
+                {e: '🦈', s: 4, p: 25, name: 'shark', weight: 45},
+                {e: '🐬', s: 3.5, p: 20, name: 'dolphin', weight: 50},
+                {e: '🐋', s: 2, p: 30, name: 'whale', weight: 40}
+            ],
+            rare: [
+                {e: '🦑', s: 3.5, p: 40, name: 'squid', weight: 25},
+                {e: '🐙', s: 2.5, p: 45, name: 'octopus', weight: 25},
+                {e: '🦀', s: 2, p: 35, name: 'crab', weight: 25},
+                {e: '🦞', s: 3, p: 50, name: 'lobster', weight: 20},
+                {e: '🦐', s: 4, p: 40, name: 'shrimp', weight: 25},
+                {e: '🦪', s: 1, p: 55, name: 'oyster', weight: 20}
+            ],
+            epic: [
+                {e: '🦭', s: 2.5, p: 80, name: 'seal', weight: 10},
+                {e: '🐊', s: 3, p: 90, name: 'crocodile', weight: 8},
+                {e: '🦎', s: 4, p: 70, name: 'lizard', weight: 10},
+                {e: '🐍', s: 3.5, p: 85, name: 'snake', weight: 8},
+                {e: '🦕', s: 1.5, p: 100, name: 'dino', weight: 5},
+                {e: '🦖', s: 2, p: 95, name: 'trex', weight: 5}
+            ],
+            legendary: [
+                {e: '🐉', s: 3, p: 200, name: 'dragon', weight: 4},
+                {e: '🧜‍♀️', s: 2.5, p: 250, name: 'mermaid', weight: 3},
+                {e: '🧞', s: 4, p: 300, name: 'genie', weight: 2},
+                {e: '👑', s: 2, p: 500, name: 'king', weight: 1}
+            ],
+            mythic: [
+                {e: '💎', s: 1, p: 1000, name: 'diamond', weight: 0.5},
+                {e: '🌟', s: 2, p: 800, name: 'star', weight: 0.6},
+                {e: '🔱', s: 3, p: 900, name: 'trident', weight: 0.4}
+            ],
+            special: [
+                {e: '💰', s: 2.5, p: 50, name: 'gold', effect: 'stars', value: 10, weight: 3},
+                {e: '⏰', s: 3, p: 30, name: 'time', effect: 'time', value: 30, weight: 2},
+                {e: '⚡', s: 4, p: 20, name: 'energy', effect: 'energy', value: 10, weight: 2}
+            ]
+        };
+        
+        function getRandomFish() {
+            const rarityRoll = Math.random();
+            const weatherBonus = currentWeather.rareBonus;
+            let pool;
+            
+            if (rarityRoll < 0.005 + weatherBonus) pool = fishTypes.mythic;
+            else if (rarityRoll < 0.04 + weatherBonus) pool = fishTypes.legendary;
+            else if (rarityRoll < 0.14 + weatherBonus) pool = fishTypes.epic;
+            else if (rarityRoll < 0.39 + weatherBonus) pool = fishTypes.rare;
+            else pool = fishTypes.common;
+            
+            // Weighted random from pool
+            const totalWeight = pool.reduce((sum, f) => sum + f.weight, 0);
+            let random = Math.random() * totalWeight;
+            for (const fish of pool) {
+                random -= fish.weight;
+                if (random <= 0) return fish;
+            }
+            return pool[0];
+        }
+        
+        function changeWeather() {
+            const weathers = [WEATHER.SUNNY, WEATHER.RAIN, WEATHER.FOG, WEATHER.NIGHT];
+            currentWeather = weathers[Math.floor(Math.random() * weathers.length)];
+            updateWeatherUI();
+        }
+        
+        function updateWeatherUI() {
+            const weatherEl = document.getElementById('weatherUI');
+            if (weatherEl) weatherEl.textContent = currentWeather.name;
+        }
+        
+        // Spawn colorful fish with rarity
         function spawnFish() {
-            if (fishes.length < 5 && Math.random() < 0.02) {
-                const types = [
-                    {e: '🐟', s: 2, p: 10, name: 'blue'},      // Blue fish
-                    {e: '🐠', s: 3, p: 20, name: 'yellow'},    // Yellow/orange fish  
-                    {e: '🐡', s: 1.5, p: 30, name: 'puffer'},  // Puffer fish
-                    {e: '🦈', s: 4, p: 50, name: 'shark'},     // Shark
-                    {e: '🐙', s: 2.5, p: 40, name: 'octopus'}, // Octopus
-                    {e: '🦑', s: 3.5, p: 35, name: 'squid'}    // Squid
-                ];
+            if (fishes.length < 6 && Math.random() < 0.025) {
+                const t = getRandomFish();
                 const t = types[Math.floor(Math.random() * types.length)];
                 const dir = Math.random() > 0.5 ? 1 : -1;
                 fishes.push({
