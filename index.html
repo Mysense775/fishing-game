@@ -223,12 +223,16 @@
             }
         }
         
-        // Spawn fish
+        // Spawn colorful fish
         function spawnFish() {
             if (fishes.length < 5 && Math.random() < 0.02) {
                 const types = [
-                    {e: '🐟', s: 2, p: 10}, {e: '🐠', s: 3, p: 20}, {e: '🐡', s: 1.5, p: 30},
-                    {e: '🦈', s: 4, p: 50}, {e: '🐙', s: 2.5, p: 40}, {e: '🦑', s: 3.5, p: 35}
+                    {e: '🐟', s: 2, p: 10, name: 'blue'},      // Blue fish
+                    {e: '🐠', s: 3, p: 20, name: 'yellow'},    // Yellow/orange fish  
+                    {e: '🐡', s: 1.5, p: 30, name: 'puffer'},  // Puffer fish
+                    {e: '🦈', s: 4, p: 50, name: 'shark'},     // Shark
+                    {e: '🐙', s: 2.5, p: 40, name: 'octopus'}, // Octopus
+                    {e: '🦑', s: 3.5, p: 35, name: 'squid'}    // Squid
                 ];
                 const t = types[Math.floor(Math.random() * types.length)];
                 const dir = Math.random() > 0.5 ? 1 : -1;
@@ -384,31 +388,75 @@
                 ctx.fill();
             }
             
-            // Fishes
-            ctx.font = '26px Arial';
+            // Fishes with color and shadow
+            ctx.font = '28px Arial';
             ctx.textAlign = 'center';
             for (const f of fishes) {
+                const wiggle = Math.sin(f.w) * 5;
+                
+                // Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                ctx.beginPath();
+                ctx.ellipse(f.x, f.y + wiggle + 18, 18, 6, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Fish emoji
                 ctx.save();
-                ctx.translate(f.x, f.y + Math.sin(f.w) * 5);
-                ctx.scale(f.dir, 1);
+                ctx.translate(f.x, f.y + wiggle);
+                ctx.scale(f.dir * (1 + Math.sin(f.w * 2) * 0.05), 1);
                 ctx.fillText(f.type.e, 0, 10);
                 ctx.restore();
             }
             
-            // Hook line
+            // Hook line with animation effect
             if (hook.drop || hook.retract) {
-                ctx.strokeStyle = '#888';
+                // Line from boat
+                const startX = boat.x + Math.sin(boat.angle) * 20;
+                const startY = boat.y + 10;
+                
+                // Gradient line
+                const lineGrad = ctx.createLinearGradient(startX, startY, hook.x, hook.y);
+                lineGrad.addColorStop(0, '#666');
+                lineGrad.addColorStop(0.5, '#888');
+                lineGrad.addColorStop(1, '#AAA');
+                
+                ctx.strokeStyle = lineGrad;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.moveTo(boat.x + Math.sin(boat.angle) * 20, boat.y + 10);
+                ctx.moveTo(startX, startY);
                 ctx.lineTo(hook.x, hook.y);
                 ctx.stroke();
                 
-                ctx.strokeStyle = '#666';
+                // Hook with shine
+                const hookGrad = ctx.createRadialGradient(hook.x - 2, hook.y - 2, 0, hook.x, hook.y, 10);
+                hookGrad.addColorStop(0, '#CCC');
+                hookGrad.addColorStop(0.5, '#888');
+                hookGrad.addColorStop(1, '#444');
+                
+                ctx.strokeStyle = hookGrad;
                 ctx.lineWidth = 3;
                 ctx.beginPath();
-                ctx.arc(hook.x, hook.y, 8, 0, Math.PI);
+                ctx.arc(hook.x, hook.y, 8, 0, Math.PI, false);
                 ctx.stroke();
+                
+                // Hook highlight
+                ctx.strokeStyle = '#FFF';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(hook.x - 1, hook.y - 1, 6, 0, Math.PI * 0.7);
+                ctx.stroke();
+            }
+            
+            // Splash effect when hook hits water
+            if (hook.drop && hook.len > 5 && hook.len < 25) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i / 5) * Math.PI;
+                    const r = 15 - hook.len * 0.5;
+                    ctx.beginPath();
+                    ctx.arc(hook.x + Math.cos(angle) * r, boat.y + 25 + Math.sin(angle) * 3, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
             
             // Boat shadow
@@ -421,6 +469,12 @@
             ctx.save();
             ctx.translate(boat.x, boat.y - 10);
             ctx.rotate(boat.angle);
+            
+            // Boat shadow on water
+            ctx.fillStyle = 'rgba(0,0,0,0.15)';
+            ctx.beginPath();
+            ctx.ellipse(5, 40, 38, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
             
             const boatGrad = ctx.createLinearGradient(-35, 10, 35, 30);
             boatGrad.addColorStop(0, '#654321');
@@ -435,20 +489,46 @@
             ctx.closePath();
             ctx.fill();
             
+            // Boat rim
+            ctx.strokeStyle = '#4A3728';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Inside boat
             ctx.fillStyle = '#4A3728';
             ctx.fillRect(-30, 15, 60, 10);
             
-            ctx.fillStyle = '#654321';
+            // Deck boards
+            ctx.strokeStyle = '#3D2E20';
+            ctx.lineWidth = 1;
+            for (let i = -25; i < 25; i += 8) {
+                ctx.beginPath();
+                ctx.moveTo(i, 15);
+                ctx.lineTo(i + 4, 25);
+                ctx.stroke();
+            }
+            
+            // Mast
+            const mastGrad = ctx.createLinearGradient(-2, -30, 2, 10);
+            mastGrad.addColorStop(0, '#8B7355');
+            mastGrad.addColorStop(1, '#654321');
+            ctx.fillStyle = mastGrad;
             ctx.fillRect(-2, -30, 4, 40);
             
-            ctx.fillStyle = '#F5F5DC';
+            // Sail with gradient
+            const sailGrad = ctx.createLinearGradient(0, -25, 22, -5);
+            sailGrad.addColorStop(0, '#FFFEF0');
+            sailGrad.addColorStop(0.5, '#F5F5DC');
+            sailGrad.addColorStop(1, '#E8E4C9');
+            ctx.fillStyle = sailGrad;
             ctx.beginPath();
             ctx.moveTo(0, -25);
-            ctx.lineTo(22, -5);
+            ctx.quadraticCurveTo(11, -15, 22, -5);
             ctx.lineTo(0, 0);
             ctx.closePath();
             ctx.fill();
             
+            // Flag
             ctx.fillStyle = '#FF6347';
             ctx.beginPath();
             ctx.moveTo(0, -30);
