@@ -176,6 +176,7 @@
             timeLeft = 120;
             fishes = [];
             bubbles = [];
+            scoreAnims = [];
             hook = { x: 0, y: 0, len: 0, drop: false, retract: false, fish: null };
             boat.x = canvas.width / 2;
             
@@ -223,6 +224,9 @@
             }
         }
         
+        // Score animations array
+        let scoreAnims = [];
+        
         // Spawn colorful fish
         function spawnFish() {
             if (fishes.length < 5 && Math.random() < 0.02) {
@@ -242,6 +246,17 @@
                     type: t, dir: dir, w: Math.random() * Math.PI * 2, caught: false
                 });
             }
+        }
+        
+        // Add score animation
+        function addScoreAnim(x, y, points) {
+            scoreAnims.push({
+                x: x,
+                y: y,
+                text: '+' + points,
+                life: 60,
+                vy: -2
+            });
         }
         
         // Drop hook
@@ -295,6 +310,8 @@
                         score += f.type.p;
                         caught++;
                         updateUI();
+                        // Add floating score animation
+                        addScoreAnim(f.x, f.y, f.type.p);
                         if (gameMode === 'challenge' && caught >= 25) { endGame(); return; }
                         break;
                     }
@@ -469,6 +486,26 @@
                     ctx.arc(hook.x + Math.cos(angle) * r, boat.y + 25 + Math.sin(angle) * 2, 2 + hook.len * 0.1, 0, Math.PI * 2);
                     ctx.fill();
                 }
+            }
+            
+            // Score animations
+            for (let i = scoreAnims.length - 1; i >= 0; i--) {
+                const a = scoreAnims[i];
+                a.y += a.vy;
+                a.life--;
+                
+                const alpha = a.life / 60;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.font = 'bold 24px Arial';
+                ctx.fillStyle = '#FFD700';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 3;
+                ctx.strokeText(a.text, a.x, a.y);
+                ctx.fillText(a.text, a.x, a.y);
+                ctx.restore();
+                
+                if (a.life <= 0) scoreAnims.splice(i, 1);
             }
             
             // Boat shadow
