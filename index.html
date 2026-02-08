@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>🎣 Поймай рыбку!</title>
-    <script src="https://unpkg.com/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js"></script>
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
         body {
@@ -65,20 +65,7 @@
         }
         .btn.mode { background: linear-gradient(135deg, #4CAF50, #2E7D32); color: white; box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4); }
         .btn.mode.challenge { background: linear-gradient(135deg, #FF6347, #D32F2F); box-shadow: 0 4px 15px rgba(255, 99, 71, 0.4); }
-        #walletBtn {
-            background: linear-gradient(135deg, #0088CC, #00AAFF);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 25px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin: 10px auto;
-            display: block;
-            box-shadow: 0 4px 15px rgba(0, 136, 204, 0.5);
-        }
-        #walletBtn:hover { background: linear-gradient(135deg, #006699, #0088CC); }
+        /* Wallet button styles removed - using TON Connect UI */
         #buyStarsBtn {
             background: linear-gradient(135deg, #FFD700, #FFA500);
             border: none;
@@ -131,23 +118,22 @@
         #resultStats { color: white; font-size: 18px; margin: 15px 0; text-align: center; line-height: 1.8; }
         .success { color: #4CAF50; font-weight: bold; }
         .fail { color: #FF6347; font-weight: bold; }
-        #walletBtn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 50;
-            background: linear-gradient(135deg, #0088cc, #005580);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 2px 10px rgba(0, 136, 204, 0.4);
+        #ton-connect {
+            margin: 10px auto;
+            display: flex;
+            justify-content: center;
         }
-        #walletBtn.connected {
-            background: linear-gradient(135deg, #4CAF50, #2E7D32);
+        #ton-connect button {
+            background: linear-gradient(135deg, #0088cc, #005580) !important;
+            color: white !important;
+            border: none !important;
+            padding: 12px 24px !important;
+            border-radius: 25px !important;
+            font-size: 16px !important;
+            font-weight: bold !important;
+            cursor: pointer !important;
+            box-shadow: 0 4px 15px rgba(0, 136, 204, 0.5) !important;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
         }
         .modal {
             position: fixed;
@@ -232,7 +218,8 @@
         
         <div id="startScreen" class="screen active">
             <h1>🎣 Поймай рыбку!</h1>
-            <button id="walletBtn" onclick="toggleWallet()">🔗 Connect Wallet</button>
+            <div id="ton-connect"></div>
+            <div id="walletStatus" style="color: #4CAF50; font-size: 12px; margin: 5px 0; min-height: 18px;"></div>
             <button class="btn" onclick="showModes()">ИГРАТЬ</button>
             <div class="instructions">🚢 Кораблик движется автоматически<br>🎣 Нажми, чтобы закинуть удочку!<br>🐟 Попади крючком по рыбке!</div>
         </div>
@@ -303,51 +290,69 @@
         
         // TON Connect
         const PLATFORM_WALLET = 'UQDV7Zpy3FQLFm0xmt31ErNIZovs1bhb7HJeYOB-fUTUuge1'; // Platform wallet
-        let tonConnect = null;
+        let tonConnectUI = null;
         let isWalletConnected = false;
-        let walletAddress = null;
+        let walletAddress = localStorage.getItem('tonWalletAddress') || null;
         
-        // Initialize TON Connect
-        async function initTonConnect() {
+        // Initialize TON Connect UI
+        function initTonConnect() {
             try {
-                if (typeof TonConnect === 'undefined') {
-                    console.log('TON Connect SDK not loaded yet, waiting...');
-                    setTimeout(initTonConnect, 1000);
+                if (typeof TON_CONNECT_UI === 'undefined') {
+                    console.log('TON Connect UI not loaded yet, waiting...');
+                    setTimeout(initTonConnect, 500);
                     return;
                 }
                 
-                tonConnect = new TonConnect({
-                    manifestUrl: 'https://mysense775.github.io/fishing-game/tonconnect-manifest.json'
+                // Create TON Connect UI instance
+                tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+                    manifestUrl: 'https://mysense775.github.io/fishing-game/tonconnect-manifest.json',
+                    buttonRootId: 'ton-connect'
                 });
                 
-                // Check if wallet is already connected
-                const connected = await tonConnect.restoreConnection();
-                if (connected) {
-                    onWalletConnected();
+                // Set button text
+                tonConnectUI.uiOptions = {
+                    language: 'en'
+                };
+                
+                // Check if we have a saved wallet address
+                if (walletAddress) {
+                    updateWalletStatus('Restoring connection...');
                 }
                 
                 // Listen for status changes
-                tonConnect.onStatusChange((wallet) => {
+                tonConnectUI.onStatusChange((wallet) => {
                     if (wallet) {
-                        onWalletConnected();
+                        onWalletConnected(wallet);
                     } else {
                         onWalletDisconnected();
                     }
                 });
                 
-                console.log('TON Connect initialized');
+                console.log('TON Connect UI initialized');
             } catch (e) {
-                console.error('TON Connect init error:', e);
+                console.error('TON Connect UI init error:', e);
+                updateWalletStatus('Error initializing wallet');
             }
         }
         
-        function onWalletConnected() {
-            if (tonConnect && tonConnect.account) {
+        function updateWalletStatus(text) {
+            const statusEl = document.getElementById('walletStatus');
+            if (statusEl) {
+                statusEl.textContent = text;
+            }
+        }
+        
+        function onWalletConnected(wallet) {
+            if (wallet && wallet.account) {
                 isWalletConnected = true;
-                walletAddress = tonConnect.account.address;
+                walletAddress = wallet.account.address;
+                
+                // Save to localStorage
+                localStorage.setItem('tonWalletAddress', walletAddress);
+                localStorage.setItem('tonWalletConnected', 'true');
+                
                 const shortAddress = walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4);
-                document.getElementById('walletBtn').textContent = '✓ ' + shortAddress;
-                document.getElementById('walletBtn').classList.add('connected');
+                updateWalletStatus('✓ Connected: ' + shortAddress);
                 console.log('Wallet connected:', walletAddress);
             }
         }
@@ -355,43 +360,18 @@
         function onWalletDisconnected() {
             isWalletConnected = false;
             walletAddress = null;
-            document.getElementById('walletBtn').textContent = '🔗 Connect Wallet';
-            document.getElementById('walletBtn').classList.remove('connected');
+            
+            // Clear from localStorage
+            localStorage.removeItem('tonWalletAddress');
+            localStorage.removeItem('tonWalletConnected');
+            
+            updateWalletStatus('');
             console.log('Wallet disconnected');
         }
         
-        async function toggleWallet() {
-            if (!tonConnect) {
-                alert('TON Connect initializing, please wait...');
-                return;
-            }
-            
-            try {
-                if (isWalletConnected) {
-                    await tonConnect.disconnect();
-                } else {
-                    // Open wallet connection modal
-                    const wallets = await tonConnect.getWallets();
-                    if (wallets.length === 0) {
-                        alert('No TON wallets found. Please install Tonkeeper or MyTonWallet.');
-                        return;
-                    }
-                    
-                    // Use Tonkeeper as default or show wallet selection
-                    const universalLink = tonConnect.connect(wallets[0]);
-                    
-                    // On mobile, open wallet app
-                    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-                        window.location.href = universalLink;
-                    } else {
-                        // On desktop, show QR or open wallet
-                        window.open(universalLink, '_blank');
-                    }
-                }
-            } catch (e) {
-                console.error('Wallet toggle error:', e);
-                alert('Error connecting wallet: ' + e.message);
-            }
+        // Get connected wallet address
+        function getWalletAddress() {
+            return walletAddress;
         }
         
         function showBuyModal() {
@@ -403,7 +383,7 @@
         }
         
         async function buyStars(starAmount, tonAmount) {
-            if (!isWalletConnected || !tonConnect) {
+            if (!isWalletConnected || !tonConnectUI) {
                 alert('Сначала подключи TON кошелёк!');
                 return;
             }
@@ -416,20 +396,14 @@
                         {
                             address: PLATFORM_WALLET,
                             amount: (tonAmount * 1000000000).toString(), // Convert TON to nanotons
-                            payload: 'te6ccsGCDEAAAQAAPQ==', // Simple comment payload (optional)
                         }
                     ]
                 };
                 
-                // Add comment about purchase
-                const body = tonConnect.account.address
-                    ? `Buying ${starAmount} Stars`
-                    : '';
-                
                 console.log('Sending transaction:', transaction);
                 
-                // Send transaction
-                const result = await tonConnect.sendTransaction(transaction);
+                // Send transaction using TON Connect UI
+                const result = await tonConnectUI.sendTransaction(transaction);
                 
                 console.log('Transaction sent:', result);
                 
@@ -456,7 +430,7 @@
                 
             } catch (e) {
                 console.error('Purchase error:', e);
-                if (e.message && e.message.includes('User declined')) {
+                if (e.message && e.message.includes('declined') || e.message && e.message.includes('cancelled')) {
                     alert('Транзакция отменена');
                 } else {
                     alert('Ошибка при покупке: ' + (e.message || 'Unknown error'));
