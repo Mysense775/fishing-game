@@ -66,19 +66,16 @@
         .btn.mode { background: linear-gradient(135deg, #4CAF50, #2E7D32); color: white; box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4); }
         .btn.mode.challenge { background: linear-gradient(135deg, #FF6347, #D32F2F); box-shadow: 0 4px 15px rgba(255, 99, 71, 0.4); }
         #walletBtn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
             background: linear-gradient(135deg, #0088CC, #00AAFF);
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 12px 24px;
             border-radius: 25px;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: bold;
             cursor: pointer;
-            z-index: 1000;
-            pointer-events: auto;
+            margin: 10px auto;
+            display: block;
             box-shadow: 0 4px 15px rgba(0, 136, 204, 0.5);
         }
         #walletBtn:hover { background: linear-gradient(135deg, #006699, #0088CC); }
@@ -226,7 +223,6 @@
 <body>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
-        <button id="walletBtn" onclick="toggleWallet()">🔗 Connect Wallet</button>
         <div id="ui">
             <div class="score-box">⭐ <span id="scoreVal">0</span></div>
             <div class="score-box">💎 <span id="starsVal">10</span></div>
@@ -236,6 +232,7 @@
         
         <div id="startScreen" class="screen active">
             <h1>🎣 Поймай рыбку!</h1>
+            <button id="walletBtn" onclick="toggleWallet()">🔗 Connect Wallet</button>
             <button class="btn" onclick="showModes()">ИГРАТЬ</button>
             <div class="instructions">🚢 Кораблик движется автоматически<br>🎣 Нажми, чтобы закинуть удочку!<br>🐟 Попади крючком по рыбке!</div>
         </div>
