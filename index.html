@@ -65,6 +65,70 @@
         }
         .btn.mode { background: linear-gradient(135deg, #4CAF50, #2E7D32); color: white; box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4); }
         .btn.mode.challenge { background: linear-gradient(135deg, #FF6347, #D32F2F); box-shadow: 0 4px 15px rgba(255, 99, 71, 0.4); }
+        #walletBtn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: linear-gradient(135deg, #0088CC, #00AAFF);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 200;
+            box-shadow: 0 2px 10px rgba(0, 136, 204, 0.4);
+        }
+        #walletBtn:hover { background: linear-gradient(135deg, #006699, #0088CC); }
+        #buyStarsBtn {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 10px;
+            color: #333;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 300;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: linear-gradient(135deg, #1a237e, #0d1642);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            color: white;
+            max-width: 90%;
+        }
+        .buy-option {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #333;
+            padding: 15px;
+            margin: 10px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .buy-option:hover { transform: scale(1.05); }
+        .close-modal {
+            background: #666;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            margin-top: 15px;
+            cursor: pointer;
+        }
         .instructions { color: white; margin-top: 20px; text-align: center; font-size: 14px; line-height: 1.6; max-width: 80%; }
         #resultStats { color: white; font-size: 18px; margin: 15px 0; text-align: center; line-height: 1.8; }
         .success { color: #4CAF50; font-weight: bold; }
@@ -255,7 +319,7 @@
                 }
                 
                 tonConnect = new TON_CONNECT_SDK.TonConnect({
-                    manifestUrl: 'https://your-domain.com/tonconnect-manifest.json' // Replace with your manifest
+                    manifestUrl: 'https://mysense775.github.io/fishing-game/tonconnect-manifest.json'
                 });
                 
                 // Check if wallet is already connected
