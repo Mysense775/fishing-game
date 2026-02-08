@@ -258,6 +258,12 @@
             }
         }
         
+        // Инициализация Telegram WebApp
+        if (window.Telegram?.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+        }
+        
         function requestBuyStars() {
             showScreen('buyModal');
         }
@@ -267,22 +273,43 @@
         }
         
         function buyStarsNow(amount, price) {
+            // Показываем loading
+            const btn = event.target.closest('.mode-card');
+            if (btn) {
+                btn.style.opacity = '0.5';
+                btn.innerHTML = '<div style="color: white;">⏳ Отправка...</div>';
+            }
+            
             if (window.Telegram?.WebApp) {
-                window.Telegram.WebApp.sendData(JSON.stringify({
-                    action: 'buy_crystals_inline',
-                    amount: amount,
-                    price: price
-                }));
-                alert(`Запрос на покупку ${amount} Кристаллов отправлен!`);
-                closeBuyModal();
+                try {
+                    window.Telegram.WebApp.sendData(JSON.stringify({
+                        action: 'buy_crystals_inline',
+                        amount: amount,
+                        price: price
+                    }));
+                    
+                    // Закрываем модал через 500ms
+                    setTimeout(() => {
+                        closeBuyModal();
+                        window.Telegram.WebApp.showAlert(`✅ Запрос на ${amount} Кристаллов отправлен! Оплатите в чате с ботом.`);
+                    }, 500);
+                    
+                } catch (e) {
+                    console.error('Error sending data:', e);
+                    alert('❌ Ошибка отправки. Попробуйте ещё раз.');
+                    if (btn) {
+                        btn.style.opacity = '1';
+                        btn.innerHTML = `<div style="font-size: 24px; font-weight: bold; color: #FFD700;">${amount} 💎</div><div style="color: white; margin-top: 5px;">${price} Telegram Star${price > 1 ? 's' : ''}</div>`;
+                    }
+                }
             } else {
                 // Для теста - просто добавляем
                 crystals += amount;
                 localStorage.setItem('crystals', crystals);
                 updateUI();
                 document.getElementById('menuStars').textContent = crystals;
-                alert(`✅ Тест: добавлено ${amount} Кристаллов!`);
                 closeBuyModal();
+                alert(`✅ Тест: добавлено ${amount} Кристаллов!`);
             }
         }
         
