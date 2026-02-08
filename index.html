@@ -160,7 +160,7 @@
         <canvas id="gameCanvas"></canvas>
         <div id="ui">
             <div class="score-box">💎 <span id="scoreVal">0</span></div>
-            <div class="score-box" id="starsBalance">⭐ <span id="telegramStarsVal">0</span></div>
+            <div class="score-box" id="starsBalance">💎 <span id="telegramStarsVal">0</span></div>
             <div class="score-box" id="timerUI" style="display:none;">⏱️ <span id="timeVal">02:00</span></div>
             <div class="score-box" id="targetUI" style="display:none;">🎯 <span id="caughtVal">0</span>/25</div>
         </div>
@@ -174,8 +174,8 @@
             <h1>ВЫБЕРИ РЕЖИМ</h1>
             
             <div class="balance-display">
-                <span>⭐</span>
-                <span>Баланс: <span id="menuStars">0</span> Stars</span>
+                <span>💎</span>
+                <span>Баланс: <span id="menuStars">0</span> Кристаллов</span>
             </div>
             
             <div class="mode-grid">
@@ -190,12 +190,12 @@
                 </div>
                 
                 <div class="mode-card bet" onclick="requestBet()">
-                    <div class="mode-title">💎 СТАВКА 1⭐</div>
-                    <div class="mode-desc">Выигрыш: 2 Stars | Проверка в боте</div>
+                    <div class="mode-title">💎 СТАВКА 1</div>
+                    <div class="mode-desc">Выигрыш: 2 Кристалла | Проверка в боте</div>
                 </div>
             </div>
             
-            <button class="buy-btn" onclick="requestBuyStars()">💎 КУПИТЬ STARS</button>
+            <button class="buy-btn" onclick="requestBuyStars()">💎 КУПИТЬ КРИСТАЛЛЫ</button>
         </div>
         
         <div id="gameOverScreen" class="screen">
@@ -206,18 +206,18 @@
         
         <!-- Модальное окно покупки Stars -->
         <div id="buyModal" class="screen" style="background: rgba(0,0,0,0.9);">
-            <h1 style="color: #FFD700; margin-bottom: 30px;">💎 КУПИТЬ STARS</h1>
+            <h1 style="color: #FFD700; margin-bottom: 30px;">💎 КУПИТЬ КРИСТАЛЛЫ</h1>
             <div style="display: flex; flex-direction: column; gap: 15px; width: 90%; max-width: 350px;">
                 <div class="mode-card" onclick="buyStarsNow(10, 1)" style="cursor: pointer; padding: 20px;">
-                    <div style="font-size: 24px; font-weight: bold; color: #FFD700;">10 ⭐</div>
+                    <div style="font-size: 24px; font-weight: bold; color: #FFD700;">10 💎</div>
                     <div style="color: white; margin-top: 5px;">1 Telegram Star</div>
                 </div>
                 <div class="mode-card" onclick="buyStarsNow(50, 5)" style="cursor: pointer; padding: 20px; background: linear-gradient(135deg, rgba(156, 39, 176, 0.3), rgba(156, 39, 176, 0.1));">
-                    <div style="font-size: 24px; font-weight: bold; color: #FFD700;">50 ⭐</div>
+                    <div style="font-size: 24px; font-weight: bold; color: #FFD700;">50 💎</div>
                     <div style="color: white; margin-top: 5px;">5 Telegram Stars <span style="color: #4CAF50;">(-10%)</span></div>
                 </div>
                 <div class="mode-card" onclick="buyStarsNow(100, 9)" style="cursor: pointer; padding: 20px; background: linear-gradient(135deg, rgba(255, 152, 0, 0.3), rgba(255, 152, 0, 0.1));">
-                    <div style="font-size: 24px; font-weight: bold; color: #FFD700;">100 ⭐</div>
+                    <div style="font-size: 24px; font-weight: bold; color: #FFD700;">100 💎</div>
                     <div style="color: white; margin-top: 5px;">9 Telegram Stars <span style="color: #4CAF50;">(-10%)</span></div>
                 </div>
             </div>
@@ -230,7 +230,7 @@
         const ctx = canvas.getContext('2d');
         let gameState = 'MENU', gameMode = 'free', score = 0, caught = 0, timeLeft = 120;
         let timerId = null, animationId = null;
-        let telegramStars = parseInt(localStorage.getItem('telegramStars')) || 0;
+        let crystals = parseInt(localStorage.getItem('crystals')) || 0; // Кристаллы - игровая валюта
         let boat = { x: 0, y: 120, dir: 1, angle: 0 };
         let hook = { x: 0, y: 0, len: 0, drop: false, retract: false, fish: null };
         let fishes = [], bubbles = [], clouds = [], seaweed = [], waves = [];
@@ -247,9 +247,9 @@
         resize();
         
         function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); if (id) document.getElementById(id).classList.add('active'); }
-        function showModes() { document.getElementById('menuStars').textContent = telegramStars; showScreen('modeScreen'); }
+        function showModes() { document.getElementById('menuStars').textContent = crystals; showScreen('modeScreen'); }
         function formatTime(s) { return Math.floor(s/60).toString().padStart(2,'0') + ':' + (s%60).toString().padStart(2,'0'); }
-        function updateUI() { document.getElementById('scoreVal').textContent = score; document.getElementById('telegramStarsVal').textContent = telegramStars; document.getElementById('timeVal').textContent = formatTime(timeLeft); document.getElementById('caughtVal').textContent = caught; }
+        function updateUI() { document.getElementById('scoreVal').textContent = score; document.getElementById('telegramStarsVal').textContent = crystals; document.getElementById('timeVal').textContent = formatTime(timeLeft); document.getElementById('caughtVal').textContent = caught; }
         
         function requestBet() {
             if (window.Telegram?.WebApp) {
@@ -269,19 +269,19 @@
         function buyStarsNow(amount, price) {
             if (window.Telegram?.WebApp) {
                 window.Telegram.WebApp.sendData(JSON.stringify({
-                    action: 'buy_stars_inline',
+                    action: 'buy_crystals_inline',
                     amount: amount,
                     price: price
                 }));
-                alert(`Запрос на покупку ${amount} Stars отправлен!`);
+                alert(`Запрос на покупку ${amount} Кристаллов отправлен!`);
                 closeBuyModal();
             } else {
                 // Для теста - просто добавляем
-                telegramStars += amount;
-                localStorage.setItem('telegramStars', telegramStars);
+                crystals += amount;
+                localStorage.setItem('crystals', crystals);
                 updateUI();
-                document.getElementById('menuStars').textContent = telegramStars;
-                alert(`✅ Тест: добавлено ${amount} Stars!`);
+                document.getElementById('menuStars').textContent = crystals;
+                alert(`✅ Тест: добавлено ${amount} Кристаллов!`);
                 closeBuyModal();
             }
         }
