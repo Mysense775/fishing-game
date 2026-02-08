@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>🎣 Поймай рыбку!</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
         body {
@@ -67,7 +68,16 @@
         .instructions { color: white; margin-top: 20px; text-align: center; font-size: 14px; line-height: 1.6; max-width: 80%; }
         #resultStats { color: white; font-size: 18px; margin: 15px 0; text-align: center; line-height: 1.8; }
         .success { color: #4CAF50; font-weight: bold; }
-        .fail { color: #FF6347; font-weight: bold; }
+        .bet-info { 
+            color: #FFD700; 
+            font-size: 12px; 
+            margin-top: 5px; 
+            text-align: center; 
+            max-width: 80%;
+            background: rgba(0,0,0,0.5);
+            padding: 8px 12px;
+            border-radius: 10px;
+        }
     </style>
 </head>
 <body>
@@ -75,7 +85,6 @@
         <canvas id="gameCanvas"></canvas>
         <div id="ui">
             <div class="score-box">💎 <span id="scoreVal">0</span></div>
-            <div class="score-box" id="telegramStarsUI">⭐ <span id="telegramStarsVal">0</span></div>
             <div class="score-box" id="timerUI" style="display:none;">⏱️ <span id="timeVal">02:00</span></div>
             <div class="score-box" id="targetUI" style="display:none;">🎯 <span id="caughtVal">0</span>/25</div>
         </div>
@@ -90,7 +99,7 @@
             <h1>🎮 Выбери режим</h1>
             <button class="btn mode" onclick="startGame('free')">🎣 СВОБОДНАЯ ИГРА</button>
             <button class="btn mode challenge" onclick="startGame('challenge')">🏆 ИСПЫТАНИЕ<br><small>25 рыбок за 2 минуты!</small></button>
-            <button class="btn mode" onclick="placeTelegramStarBet()" style="background: linear-gradient(135deg, #0088CC, #00AAFF);">💎 СТАВКА TON<br><small>Ставка 1 Telegram Star</small></button>
+            <div class="bet-info">💡 Делай ставки через бота командой /bet<br>Игра сообщит результат автоматически</div>
         </div>
         
         <div id="gameOverScreen" class="screen">
@@ -101,21 +110,25 @@
     </div>
 
     <script>
+        // Telegram WebApp
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+            tg.expand();
+            tg.ready();
+        }
+        
         // Canvas
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
         // Game variables
-        let gameState = 'MENU'; // MENU, PLAYING, GAMEOVER
+        let gameState = 'MENU';
         let gameMode = 'free';
         let score = 0;
         let caught = 0;
         let timeLeft = 120;
         let timerId = null;
         let animationId = null;
-        let telegramStars = parseInt(localStorage.getItem('telegramStars')) || 0; // Баланс Telegram Stars
-        let telegramStarBet = false; // Ставка Telegram Stars
-        let currentBet = 0; // Текущая ставка
         
         // Entities
         let boat = { x: 0, y: 120, dir: 1, angle: 0 };
@@ -125,6 +138,7 @@
         let clouds = [];
         let seaweed = [];
         let waves = [];
+        let scoreAnims = [];
         
         // Setup
         function resize() {
@@ -132,7 +146,6 @@
             canvas.height = window.innerHeight;
             boat.y = canvas.height * 0.18;
             
-            // Init decorative elements
             clouds = [];
             for (let i = 0; i < 4; i++) {
                 clouds.push({ x: Math.random() * canvas.width, y: 30 + Math.random() * 50, s: 25 + Math.random() * 20, sp: 0.3 + Math.random() * 0.3 });
@@ -166,42 +179,10 @@
             return Math.floor(s/60).toString().padStart(2,'0') + ':' + (s%60).toString().padStart(2,'0');
         }
         
-        // Ставка Telegram Stars
-        function placeTelegramStarBet() {
-            if (telegramStars < 1) {
-                alert('Недостаточно Telegram Stars! Нужно минимум 1⭐\n\nИспользуй команду /buy чтобы купить Stars.');
-                return;
-            }
-            
-            if (confirm('Поставить 1 Telegram Star на "25 рыбок за 2 минуты"?\n\nВыигрыш: 2 Telegram Stars\nПроигрыш: 0 Telegram Stars')) {
-                telegramStarBet = true;
-                currentBet = 1;
-                telegramStars -= 1; // Снимаем ставку
-                localStorage.setItem('telegramStars', telegramStars);
-                updateUI();
-                
-                if (window.Telegram?.WebApp) {
-                    window.Telegram.WebApp.sendData(JSON.stringify({
-                        action: 'place_telegram_star_bet',
-                        amount: 1
-                    }));
-                }
-                startGame('challenge');
-            }
-        }
-        
         function updateUI() {
             document.getElementById('scoreVal').textContent = score;
-            document.getElementById('telegramStarsVal').textContent = telegramStars;
             document.getElementById('timeVal').textContent = formatTime(timeLeft);
             document.getElementById('caughtVal').textContent = caught;
-        }
-        
-        // Обновление баланса Telegram Stars
-        function updateTelegramStars(amount) {
-            telegramStars += amount;
-            localStorage.setItem('telegramStars', telegramStars);
-            updateUI();
         }
         
         // Game control
@@ -247,31 +228,17 @@
             
             const won = caught >= 25;
             
-            // Обрабатываем результат ставки Telegram Stars
-            if (telegramStarBet) {
-                if (won) {
-                    telegramStars += 2; // Выигрыш: 2 Stars (ставка 1 + выигрыш 1)
-                    setTimeout(() => {
-                        alert('🎉 ПОБЕДА! Ты поймал 25 рыбок!\n⭐ Получаешь 2 Telegram Stars!');
-                    }, 100);
-                } else {
-                    setTimeout(() => {
-                        alert('😔 Проигрыш. Не хватило рыбок.\n⭐ Ставка ушла платформе.');
-                    }, 100);
-                }
-                localStorage.setItem('telegramStars', telegramStars);
-                updateUI();
-                
-                if (window.Telegram?.WebApp) {
-                    window.Telegram.WebApp.sendData(JSON.stringify({
-                        action: 'telegram_star_bet_result',
-                        won: won,
-                        caught: caught
-                    }));
-                }
-                telegramStarBet = false;
-                currentBet = 0;
+            // Send result to bot
+            if (tg) {
+                tg.sendData(JSON.stringify({
+                    action: 'game_result',
+                    mode: gameMode,
+                    score: score,
+                    caught: caught,
+                    success: gameMode === 'challenge' ? won : true
+                }));
             }
+            
             document.getElementById('resultTitle').textContent = gameMode === 'challenge' ? (won ? '🎉 ПОБЕДА!' : '⏰ Время вышло!') : '🎣 Отличный улов!';
             document.getElementById('resultTitle').style.color = gameMode === 'challenge' && won ? '#4CAF50' : '#FFD700';
             document.getElementById('resultStats').innerHTML = `
@@ -279,27 +246,18 @@
                 ⭐ Очки: <b>${score}</b>
             `;
             showScreen('gameOverScreen');
-            
-            if (window.Telegram?.WebApp) {
-                window.Telegram.WebApp.sendData(JSON.stringify({
-                    action: 'game_over', mode: gameMode, score: score, caught: caught, success: gameMode === 'challenge' ? won : true
-                }));
-            }
         }
         
-        // Score animations array
-        let scoreAnims = [];
-        
-        // Spawn colorful fish
+        // Spawn fish
         function spawnFish() {
             if (fishes.length < 5 && Math.random() < 0.02) {
                 const types = [
-                    {e: '🐟', s: 2, p: 10, name: 'blue'},      // Blue fish
-                    {e: '🐠', s: 3, p: 20, name: 'yellow'},    // Yellow/orange fish  
-                    {e: '🐡', s: 1.5, p: 30, name: 'puffer'},  // Puffer fish
-                    {e: '🦈', s: 4, p: 50, name: 'shark'},     // Shark
-                    {e: '🐙', s: 2.5, p: 40, name: 'octopus'}, // Octopus
-                    {e: '🦑', s: 3.5, p: 35, name: 'squid'}    // Squid
+                    {e: '🐟', s: 2, p: 10},
+                    {e: '🐠', s: 3, p: 20},
+                    {e: '🐡', s: 1.5, p: 30},
+                    {e: '🦈', s: 4, p: 50},
+                    {e: '🐙', s: 2.5, p: 40},
+                    {e: '🦑', s: 3.5, p: 35}
                 ];
                 const t = types[Math.floor(Math.random() * types.length)];
                 const dir = Math.random() > 0.5 ? 1 : -1;
@@ -311,18 +269,10 @@
             }
         }
         
-        // Add score animation
         function addScoreAnim(x, y, points) {
-            scoreAnims.push({
-                x: x,
-                y: y,
-                text: '+' + points,
-                life: 60,
-                vy: -2
-            });
+            scoreAnims.push({ x: x, y: y, text: '+' + points, life: 60, vy: -2 });
         }
         
-        // Drop hook
         function dropHook() {
             if (gameState !== 'PLAYING' || hook.drop || hook.retract) return;
             hook.drop = true;
@@ -335,12 +285,13 @@
         function gameLoop() {
             if (gameState !== 'PLAYING') return;
             
-            // Update
+            // Update boat
             boat.x += 3 * boat.dir;
             if (boat.x < 50) { boat.x = 50; boat.dir = 1; }
             if (boat.x > canvas.width - 50) { boat.x = canvas.width - 50; boat.dir = -1; }
             boat.angle = Math.sin(Date.now() / 1000) * 0.05;
             
+            // Update environment
             for (const c of clouds) { c.x += c.sp; if (c.x > canvas.width + 50) c.x = -50; }
             for (const w of waves) { w.s += w.sp; }
             for (const s of seaweed) { s.w += 0.02; }
@@ -350,17 +301,13 @@
             for (const b of bubbles) b.y -= b.sp;
             bubbles = bubbles.filter(b => b.y > -10);
             
-            // Hook - realistic physics, heavy sink
+            // Hook physics
             if (hook.drop) {
-                // Slower, realistic fall - like heavy weight
-                hook.len += 8; // Slower drop for realism
+                hook.len += 8;
                 hook.y = boat.y + 20 + hook.len;
-                
-                // Hook lags behind boat (realistic physics)
                 const targetX = boat.x + Math.sin(boat.angle) * 15;
-                hook.x += (targetX - hook.x) * 0.1; // Smooth follow
+                hook.x += (targetX - hook.x) * 0.1;
                 
-                // Reach bottom
                 const maxLen = canvas.height - boat.y - 80;
                 if (hook.len >= maxLen) {
                     hook.drop = false;
@@ -379,7 +326,6 @@
                         score += f.type.p;
                         caught++;
                         updateUI();
-                        // Add floating score animation
                         addScoreAnim(f.x, f.y, f.type.p);
                         if (gameMode === 'challenge' && caught >= 25) { endGame(); return; }
                         break;
@@ -388,8 +334,7 @@
             }
             
             if (hook.retract) {
-                hook.len -= 14; // Slower, realistic pull
-                // Hook follows boat when retracting
+                hook.len -= 14;
                 const targetX = boat.x + Math.sin(boat.angle) * 15;
                 hook.x += (targetX - hook.x) * 0.15;
                 hook.y = boat.y + 20 + hook.len;
@@ -401,7 +346,7 @@
                 }
             }
             
-            // Fishes
+            // Update fishes
             for (const f of fishes) {
                 if (!f.caught) { f.x += f.type.s * f.dir; f.w += 0.15; }
             }
@@ -410,6 +355,12 @@
             spawnFish();
             
             // DRAW
+            draw();
+            
+            animationId = requestAnimationFrame(gameLoop);
+        }
+        
+        function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             // Sky gradient
@@ -482,19 +433,15 @@
                 ctx.fill();
             }
             
-            // Fishes with color and shadow
+            // Fishes
             ctx.font = '28px Arial';
             ctx.textAlign = 'center';
             for (const f of fishes) {
                 const wiggle = Math.sin(f.w) * 5;
-                
-                // Shadow
                 ctx.fillStyle = 'rgba(0,0,0,0.2)';
                 ctx.beginPath();
                 ctx.ellipse(f.x, f.y + wiggle + 18, 18, 6, 0, 0, Math.PI * 2);
                 ctx.fill();
-                
-                // Fish emoji
                 ctx.save();
                 ctx.translate(f.x, f.y + wiggle);
                 ctx.scale(f.dir * (1 + Math.sin(f.w * 2) * 0.05), 1);
@@ -502,35 +449,20 @@
                 ctx.restore();
             }
             
-            // Hook line - realistic heavy curve with lag
+            // Hook line
             if (hook.drop || hook.retract) {
                 const startX = boat.x + Math.sin(boat.angle) * 10;
                 const startY = boat.y + 10;
-                
-                // More realistic curve - heavy line sags
                 const midX = (startX + hook.x) / 2;
                 const midY = (startY + hook.y) / 2;
-                
-                // More slack when dropping (gravity), less when retracting
-                let slack;
-                if (hook.drop) {
-                    // Heavy sag when dropping - like real fishing line
-                    slack = Math.min(hook.len * 0.25, 50);
-                } else {
-                    // Taut when retracting
-                    slack = Math.max(0, 30 - hook.len * 0.15);
-                }
-                
-                // Control point creates the belly of the line
-                const controlX = midX + (hook.x - startX) * 0.2; // Lag behind
+                let slack = hook.drop ? Math.min(hook.len * 0.25, 50) : Math.max(0, 30 - hook.len * 0.15);
+                const controlX = midX + (hook.x - startX) * 0.2;
                 const controlY = midY + slack;
                 
-                // Draw main line
                 const lineGrad = ctx.createLinearGradient(startX, startY, hook.x, hook.y);
                 lineGrad.addColorStop(0, '#555');
                 lineGrad.addColorStop(0.5, '#888');
                 lineGrad.addColorStop(1, '#AAA');
-                
                 ctx.strokeStyle = lineGrad;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
@@ -538,15 +470,6 @@
                 ctx.quadraticCurveTo(controlX, controlY, hook.x, hook.y);
                 ctx.stroke();
                 
-                // Second line for thickness effect
-                ctx.strokeStyle = 'rgba(200, 200, 200, 0.5)';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(startX, startY - 1);
-                ctx.quadraticCurveTo(controlX, controlY - 1, hook.x, hook.y - 1);
-                ctx.stroke();
-                
-                // Hook
                 ctx.strokeStyle = '#777';
                 ctx.lineWidth = 3;
                 ctx.beginPath();
@@ -554,7 +477,7 @@
                 ctx.stroke();
             }
             
-            // Splash effect at water entry
+            // Splash
             if (hook.drop && hook.len > 5 && hook.len < 25) {
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
                 for (let i = 0; i < 5; i++) {
@@ -571,7 +494,6 @@
                 const a = scoreAnims[i];
                 a.y += a.vy;
                 a.life--;
-                
                 const alpha = a.life / 60;
                 ctx.save();
                 ctx.globalAlpha = alpha;
@@ -582,7 +504,6 @@
                 ctx.strokeText(a.text, a.x, a.y);
                 ctx.fillText(a.text, a.x, a.y);
                 ctx.restore();
-                
                 if (a.life <= 0) scoreAnims.splice(i, 1);
             }
             
@@ -597,7 +518,6 @@
             ctx.translate(boat.x, boat.y - 10);
             ctx.rotate(boat.angle);
             
-            // Boat shadow on water
             ctx.fillStyle = 'rgba(0,0,0,0.15)';
             ctx.beginPath();
             ctx.ellipse(5, 40, 38, 10, 0, 0, Math.PI * 2);
@@ -615,17 +535,12 @@
             ctx.lineTo(-25, 35);
             ctx.closePath();
             ctx.fill();
-            
-            // Boat rim
             ctx.strokeStyle = '#4A3728';
             ctx.lineWidth = 2;
             ctx.stroke();
             
-            // Inside boat
             ctx.fillStyle = '#4A3728';
             ctx.fillRect(-30, 15, 60, 10);
-            
-            // Deck boards
             ctx.strokeStyle = '#3D2E20';
             ctx.lineWidth = 1;
             for (let i = -25; i < 25; i += 8) {
@@ -635,14 +550,12 @@
                 ctx.stroke();
             }
             
-            // Mast
             const mastGrad = ctx.createLinearGradient(-2, -30, 2, 10);
             mastGrad.addColorStop(0, '#8B7355');
             mastGrad.addColorStop(1, '#654321');
             ctx.fillStyle = mastGrad;
             ctx.fillRect(-2, -30, 4, 40);
             
-            // Sail with gradient
             const sailGrad = ctx.createLinearGradient(0, -25, 22, -5);
             sailGrad.addColorStop(0, '#FFFEF0');
             sailGrad.addColorStop(0.5, '#F5F5DC');
@@ -655,7 +568,6 @@
             ctx.closePath();
             ctx.fill();
             
-            // Flag
             ctx.fillStyle = '#FF6347';
             ctx.beginPath();
             ctx.moveTo(0, -30);
@@ -665,22 +577,12 @@
             ctx.fill();
             
             ctx.restore();
-            
-            animationId = requestAnimationFrame(gameLoop);
         }
         
         // Input
         canvas.addEventListener('mousedown', dropHook);
         canvas.addEventListener('touchstart', (e) => { e.preventDefault(); dropHook(); });
         document.addEventListener('keydown', (e) => { if (e.code === 'Space') dropHook(); });
-        
-        // Функция для добавления Telegram Stars (через покупку)
-        window.addTelegramStars = function(amount) {
-            telegramStars += amount;
-            localStorage.setItem('telegramStars', telegramStars);
-            updateUI();
-            alert(`⭐ Добавлено ${amount} Telegram Stars!`);
-        };
         
         // Init
         updateUI();
