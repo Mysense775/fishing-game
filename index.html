@@ -25,6 +25,7 @@
             justify-content: space-between;
             pointer-events: none;
             gap: 8px;
+            z-index: 1000;
         }
         .score-box {
             background: rgba(255, 255, 255, 0.1);
@@ -202,6 +203,26 @@
             <div id="resultStats"></div>
             <button class="buy-btn" onclick="showModes()">↻ ЕЩЁ РАЗ</button>
         </div>
+        
+        <!-- Модальное окно покупки Stars -->
+        <div id="buyModal" class="screen" style="background: rgba(0,0,0,0.9);">
+            <h1 style="color: #FFD700; margin-bottom: 30px;">💎 КУПИТЬ STARS</h1>
+            <div style="display: flex; flex-direction: column; gap: 15px; width: 90%; max-width: 350px;">
+                <div class="mode-card" onclick="buyStarsNow(10, 1)" style="cursor: pointer; padding: 20px;">
+                    <div style="font-size: 24px; font-weight: bold; color: #FFD700;">10 ⭐</div>
+                    <div style="color: white; margin-top: 5px;">1 Telegram Star</div>
+                </div>
+                <div class="mode-card" onclick="buyStarsNow(50, 5)" style="cursor: pointer; padding: 20px; background: linear-gradient(135deg, rgba(156, 39, 176, 0.3), rgba(156, 39, 176, 0.1));">
+                    <div style="font-size: 24px; font-weight: bold; color: #FFD700;">50 ⭐</div>
+                    <div style="color: white; margin-top: 5px;">5 Telegram Stars <span style="color: #4CAF50;">(-10%)</span></div>
+                </div>
+                <div class="mode-card" onclick="buyStarsNow(100, 9)" style="cursor: pointer; padding: 20px; background: linear-gradient(135deg, rgba(255, 152, 0, 0.3), rgba(255, 152, 0, 0.1));">
+                    <div style="font-size: 24px; font-weight: bold; color: #FFD700;">100 ⭐</div>
+                    <div style="color: white; margin-top: 5px;">9 Telegram Stars <span style="color: #4CAF50;">(-10%)</span></div>
+                </div>
+            </div>
+            <button class="buy-btn" onclick="closeBuyModal()" style="margin-top: 30px; background: #666;">✕ ОТМЕНА</button>
+        </div>
     </div>
 
     <script>
@@ -217,7 +238,7 @@
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            boat.y = canvas.height * 0.18;
+            boat.y = canvas.height * 0.12;
             clouds = []; for (let i = 0; i < 4; i++) clouds.push({ x: Math.random() * canvas.width, y: 30 + Math.random() * 50, s: 25 + Math.random() * 20, sp: 0.3 + Math.random() * 0.3 });
             seaweed = []; for (let i = 0; i < 15; i++) seaweed.push({ x: Math.random() * canvas.width, h: 50 + Math.random() * 80, w: Math.random() * Math.PI * 2 });
             waves = []; for (let i = 0; i < 3; i++) waves.push({ a: 5 + Math.random() * 5, f: 0.01 + Math.random() * 0.005, s: Math.random() * Math.PI * 2, sp: 0.03 });
@@ -238,9 +259,30 @@
         }
         
         function requestBuyStars() {
+            showScreen('buyModal');
+        }
+        
+        function closeBuyModal() {
+            showScreen('modeScreen');
+        }
+        
+        function buyStarsNow(amount, price) {
             if (window.Telegram?.WebApp) {
-                window.Telegram.WebApp.sendData(JSON.stringify({action: 'request_buy_stars'}));
-                alert('Открываю меню покупки в боте...');
+                window.Telegram.WebApp.sendData(JSON.stringify({
+                    action: 'buy_stars_inline',
+                    amount: amount,
+                    price: price
+                }));
+                alert(`Запрос на покупку ${amount} Stars отправлен!`);
+                closeBuyModal();
+            } else {
+                // Для теста - просто добавляем
+                telegramStars += amount;
+                localStorage.setItem('telegramStars', telegramStars);
+                updateUI();
+                document.getElementById('menuStars').textContent = telegramStars;
+                alert(`✅ Тест: добавлено ${amount} Stars!`);
+                closeBuyModal();
             }
         }
         
@@ -298,8 +340,8 @@
                 for (let i = fishes.length - 1; i >= 0; i--) {
                     const f = fishes[i];
                     if (f.caught) continue;
-                    const dx = hook.x - f.x, dy = hook.y - f.y;
-                    if (dx*dx + dy*dy < 900) {
+                    const dx = hook.x - f.x, dy = (hook.y + 20 + hook.len) - f.y;
+                    if (dx*dx + dy*dy < 1600) {
                         f.caught = true; hook.fish = f; hook.drop = false; hook.retract = true;
                         score += f.type.p; caught++; updateUI();
                         if (gameMode === 'challenge' && caught >= 25) { endGame(); return; }
