@@ -310,13 +310,13 @@
         // Initialize TON Connect
         async function initTonConnect() {
             try {
-                if (typeof TON_CONNECT_SDK === 'undefined') {
+                if (typeof window.TonConnect === 'undefined') {
                     console.log('TON Connect SDK not loaded yet, waiting...');
                     setTimeout(initTonConnect, 1000);
                     return;
                 }
                 
-                tonConnect = new TON_CONNECT_SDK.TonConnect({
+                tonConnect = new window.TonConnect.TonConnectSDK({
                     manifestUrl: 'https://mysense775.github.io/fishing-game/tonconnect-manifest.json'
                 });
                 
