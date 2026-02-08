@@ -99,6 +99,7 @@
             <h1>🎮 Выбери режим</h1>
             <button class="btn mode" onclick="startGame('free')">🎣 СВОБОДНАЯ ИГРА</button>
             <button class="btn mode challenge" onclick="startGame('challenge')">🏆 ИСПЫТАНИЕ<br><small>25 рыбок за 2 минуты!</small></button>
+            <button class="btn mode" onclick="requestBet()" style="background: linear-gradient(135deg, #FFD700, #FFA500);">💎 СТАВКА 1⭐<br><small>Проверка баланса в боте</small></button>
             <div class="bet-info">💡 Делай ставки через бота командой /bet<br>Игра сообщит результат автоматически</div>
         </div>
         
@@ -177,6 +178,25 @@
         
         function formatTime(s) {
             return Math.floor(s/60).toString().padStart(2,'0') + ':' + (s%60).toString().padStart(2,'0');
+        }
+        
+        // Запрос на ставку (проверка баланса в боте)
+        function requestBet() {
+            if (window.Telegram?.WebApp) {
+                window.Telegram.WebApp.sendData(JSON.stringify({
+                    action: 'request_bet',
+                    amount: 1
+                }));
+                alert('Запрос на ставку отправлен в бот! Ожидайте подтверждения.');
+            } else {
+                alert('Откройте игру через Telegram бота!');
+            }
+        }
+        
+        // Начать игру со ставкой (после подтверждения ботом)
+        function startBetGame() {
+            telegramStarBet = true;
+            startGame('challenge');
         }
         
         function updateUI() {
