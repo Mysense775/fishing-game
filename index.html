@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>🎣 Поймай рыбку!</title>
+    <script src="https://unpkg.com/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
         body {
@@ -68,11 +69,99 @@
         #resultStats { color: white; font-size: 18px; margin: 15px 0; text-align: center; line-height: 1.8; }
         .success { color: #4CAF50; font-weight: bold; }
         .fail { color: #FF6347; font-weight: bold; }
+        #walletBtn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 50;
+            background: linear-gradient(135deg, #0088cc, #005580);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0, 136, 204, 0.4);
+        }
+        #walletBtn.connected {
+            background: linear-gradient(135deg, #4CAF50, #2E7D32);
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            padding: 25px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 320px;
+            width: 90%;
+            border: 2px solid #0088cc;
+        }
+        .modal-content h2 {
+            color: #FFD700;
+            margin-bottom: 15px;
+            font-size: 22px;
+        }
+        .buy-option {
+            background: linear-gradient(135deg, #2d3a4f, #1e2a3a);
+            border: 2px solid #0088cc;
+            border-radius: 15px;
+            padding: 15px;
+            margin: 10px 0;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .buy-option:hover {
+            background: linear-gradient(135deg, #3d4a6f, #2e3a4a);
+            transform: scale(1.02);
+        }
+        .buy-option .stars {
+            color: #FFD700;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .buy-option .price {
+            color: #0088cc;
+            font-size: 16px;
+            margin-top: 5px;
+        }
+        .close-modal {
+            background: #555;
+            color: white;
+            border: none;
+            padding: 10px 30px;
+            border-radius: 20px;
+            margin-top: 15px;
+            cursor: pointer;
+        }
+        #buyStarsBtn {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            color: #333;
+        }
     </style>
 </head>
 <body>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
+        <button id="walletBtn" onclick="toggleWallet()">🔗 Connect Wallet</button>
         <div id="ui">
             <div class="score-box">⭐ <span id="scoreVal">0</span></div>
             <div class="score-box">💎 <span id="starsVal">10</span></div>
@@ -90,8 +179,28 @@
             <h1>🎮 Выбери режим</h1>
             <button class="btn mode" onclick="startGame('free')">🎣 СВОБОДНАЯ ИГРА</button>
             <button class="btn mode challenge" onclick="placeBet()">🏆 ИСПЫТАНИЕ + СТАВКА<br><small>25 рыбок за 2 минуты! Ставка 1⭐</small></button>
+            <button id="buyStarsBtn" onclick="showBuyModal()">💎 Купить Stars</button>
             <div style="color: white; margin-top: 20px; text-align: center;">
                 💎 Твои Stars: <span id="menuStars">10</span>
+            </div>
+        </div>
+        
+        <div id="buyModal" class="modal">
+            <div class="modal-content">
+                <h2>💎 Купить Stars</h2>
+                <div class="buy-option" onclick="buyStars(10, 1)">
+                    <div class="stars">10 ⭐</div>
+                    <div class="price">1 TON</div>
+                </div>
+                <div class="buy-option" onclick="buyStars(50, 4)">
+                    <div class="stars">50 ⭐</div>
+                    <div class="price">4 TON</div>
+                </div>
+                <div class="buy-option" onclick="buyStars(100, 7)">
+                    <div class="stars">100 ⭐</div>
+                    <div class="price">7 TON</div>
+                </div>
+                <button class="close-modal" onclick="hideBuyModal()">Отмена</button>
             </div>
         </div>
         
@@ -129,6 +238,169 @@
         let stars = parseInt(localStorage.getItem('fishStars')) || 10;
         let currentBet = 0;
         let betActive = false;
+        
+        // TON Connect
+        const PLATFORM_WALLET = 'UQDV7Zpy3FQLFm0xmt31ErNIZovs1bhb7HJeYOB-fUTUuge1'; // Platform wallet
+        let tonConnect = null;
+        let isWalletConnected = false;
+        let walletAddress = null;
+        
+        // Initialize TON Connect
+        async function initTonConnect() {
+            try {
+                if (typeof TON_CONNECT_SDK === 'undefined') {
+                    console.log('TON Connect SDK not loaded yet, waiting...');
+                    setTimeout(initTonConnect, 1000);
+                    return;
+                }
+                
+                tonConnect = new TON_CONNECT_SDK.TonConnect({
+                    manifestUrl: 'https://your-domain.com/tonconnect-manifest.json' // Replace with your manifest
+                });
+                
+                // Check if wallet is already connected
+                const connected = await tonConnect.restoreConnection();
+                if (connected) {
+                    onWalletConnected();
+                }
+                
+                // Listen for status changes
+                tonConnect.onStatusChange((wallet) => {
+                    if (wallet) {
+                        onWalletConnected();
+                    } else {
+                        onWalletDisconnected();
+                    }
+                });
+                
+                console.log('TON Connect initialized');
+            } catch (e) {
+                console.error('TON Connect init error:', e);
+            }
+        }
+        
+        function onWalletConnected() {
+            if (tonConnect && tonConnect.account) {
+                isWalletConnected = true;
+                walletAddress = tonConnect.account.address;
+                const shortAddress = walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4);
+                document.getElementById('walletBtn').textContent = '✓ ' + shortAddress;
+                document.getElementById('walletBtn').classList.add('connected');
+                console.log('Wallet connected:', walletAddress);
+            }
+        }
+        
+        function onWalletDisconnected() {
+            isWalletConnected = false;
+            walletAddress = null;
+            document.getElementById('walletBtn').textContent = '🔗 Connect Wallet';
+            document.getElementById('walletBtn').classList.remove('connected');
+            console.log('Wallet disconnected');
+        }
+        
+        async function toggleWallet() {
+            if (!tonConnect) {
+                alert('TON Connect initializing, please wait...');
+                return;
+            }
+            
+            try {
+                if (isWalletConnected) {
+                    await tonConnect.disconnect();
+                } else {
+                    // Open wallet connection modal
+                    const wallets = await tonConnect.getWallets();
+                    if (wallets.length === 0) {
+                        alert('No TON wallets found. Please install Tonkeeper or MyTonWallet.');
+                        return;
+                    }
+                    
+                    // Use Tonkeeper as default or show wallet selection
+                    const universalLink = tonConnect.connect(wallets[0]);
+                    
+                    // On mobile, open wallet app
+                    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                        window.location.href = universalLink;
+                    } else {
+                        // On desktop, show QR or open wallet
+                        window.open(universalLink, '_blank');
+                    }
+                }
+            } catch (e) {
+                console.error('Wallet toggle error:', e);
+                alert('Error connecting wallet: ' + e.message);
+            }
+        }
+        
+        function showBuyModal() {
+            document.getElementById('buyModal').classList.add('active');
+        }
+        
+        function hideBuyModal() {
+            document.getElementById('buyModal').classList.remove('active');
+        }
+        
+        async function buyStars(starAmount, tonAmount) {
+            if (!isWalletConnected || !tonConnect) {
+                alert('Сначала подключи TON кошелёк!');
+                return;
+            }
+            
+            try {
+                // Create TON transfer transaction
+                const transaction = {
+                    validUntil: Math.floor(Date.now() / 1000) + 600, // 10 minutes
+                    messages: [
+                        {
+                            address: PLATFORM_WALLET,
+                            amount: (tonAmount * 1000000000).toString(), // Convert TON to nanotons
+                            payload: 'te6ccsGCDEAAAQAAPQ==', // Simple comment payload (optional)
+                        }
+                    ]
+                };
+                
+                // Add comment about purchase
+                const body = new TON_CONNECT_SDK.toUserFriendlyAddress
+                    ? `Buying ${starAmount} Stars`
+                    : '';
+                
+                console.log('Sending transaction:', transaction);
+                
+                // Send transaction
+                const result = await tonConnect.sendTransaction(transaction);
+                
+                console.log('Transaction sent:', result);
+                
+                // On success, add stars to balance
+                // In production, verify transaction server-side before adding stars
+                stars += starAmount;
+                localStorage.setItem('fishStars', stars);
+                updateStarsDisplay();
+                updateUI();
+                
+                hideBuyModal();
+                alert(`🎉 Успех! Ты купил ${starAmount} Stars за ${tonAmount} TON!`);
+                
+                // Send verification to backend (placeholder)
+                if (window.Telegram?.WebApp) {
+                    window.Telegram.WebApp.sendData(JSON.stringify({
+                        action: 'buy_stars',
+                        amount: starAmount,
+                        ton_paid: tonAmount,
+                        wallet: walletAddress,
+                        tx_hash: result.boc || 'pending'
+                    }));
+                }
+                
+            } catch (e) {
+                console.error('Purchase error:', e);
+                if (e.message && e.message.includes('User declined')) {
+                    alert('Транзакция отменена');
+                } else {
+                    alert('Ошибка при покупке: ' + (e.message || 'Unknown error'));
+                }
+            }
+        }
         
         // Setup
         function resize() {
@@ -669,6 +941,13 @@
         showScreen('startScreen');
         // Init stars display
         updateStarsDisplay();
+        // Init TON Connect
+        initTonConnect();
+        
+        // Close modal on outside click
+        document.getElementById('buyModal').addEventListener('click', (e) => {
+            if (e.target.id === 'buyModal') hideBuyModal();
+        });
     </script>
 </body>
 </html>
