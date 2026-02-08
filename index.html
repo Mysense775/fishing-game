@@ -87,8 +87,22 @@
         
         <div id="modeScreen" class="screen">
             <h1>🎮 Выбери режим</h1>
-            <button class="btn mode" onclick="startGame('free')">🎣 СВОБОДНАЯ ИГРА</button>
-            <button class="btn mode challenge" onclick="startGame('challenge')">🏆 ИСПЫТАНИЕ<br><small>25 рыбок за 2 минуты!</small></button>
+            <button class="btn mode" onclick="showDifficulties('free')">🎣 СВОБОДНАЯ ИГРА</button>
+            <button class="btn mode challenge" onclick="showDifficulties('challenge')">🏆 ИСПЫТАНИЕ<br><small>25 рыбок за 2 минуты!</small></button>
+        </div>
+        
+        <div id="difficultyScreen" class="screen">
+            <h1>⭐ Уровень сложности</h1>
+            <button class="btn" style="background: linear-gradient(135deg, #81C784, #4CAF50); color: white;" onclick="startGameWithDifficulty('easy')">
+                😊 ЛЁГКИЙ<br><small>15 рыбок • 3 мин • Медленные рыбки</small>
+            </button>
+            <button class="btn" style="background: linear-gradient(135deg, #FFB74D, #FF9800); color: white;" onclick="startGameWithDifficulty('medium')">
+                😐 СРЕДНИЙ<br><small>25 рыбок • 2 мин • Нормальная скорость</small>
+            </button>
+            <button class="btn" style="background: linear-gradient(135deg, #E57373, #F44336); color: white;" onclick="startGameWithDifficulty('hard')">
+                😈 СЛОЖНЫЙ<br><small>35 рыбок • 2 мин • Быстрые рыбки</small>
+            </button>
+            <button class="btn" style="background: #666; margin-top: 20px;" onclick="showModes()">← НАЗАД</button>
         </div>
         
         <div id="gameOverScreen" class="screen">
@@ -120,6 +134,15 @@
         let clouds = [];
         let seaweed = [];
         let waves = [];
+        
+        // Сложность
+        let gameDifficulty = 'medium';
+        const difficultySettings = {
+            easy: { target: 15, time: 180, fishSpeed: 0.7, spawnRate: 0.025, hookSpeed: 12 },
+            medium: { target: 25, time: 120, fishSpeed: 1.0, spawnRate: 0.02, hookSpeed: 10 },
+            hard: { target: 35, time: 120, fishSpeed: 1.4, spawnRate: 0.015, hookSpeed: 8 }
+        };
+        let currentDifficulty = difficultySettings.medium;
         
         // Setup
         function resize() {
@@ -157,6 +180,17 @@
             showScreen('modeScreen');
         }
         
+        function showDifficulties(mode) {
+            gameMode = mode;
+            showScreen('difficultyScreen');
+        }
+        
+        function startGameWithDifficulty(difficulty) {
+            gameDifficulty = difficulty;
+            currentDifficulty = difficultySettings[difficulty];
+            startGame(gameMode);
+        }
+        
         function formatTime(s) {
             return Math.floor(s/60).toString().padStart(2,'0') + ':' + (s%60).toString().padStart(2,'0');
         }
@@ -173,7 +207,14 @@
             gameState = 'PLAYING';
             score = 0;
             caught = 0;
-            timeLeft = 120;
+            
+            // Применяем настройки сложности
+            if (mode === 'challenge') {
+                timeLeft = currentDifficulty.time;
+            } else {
+                timeLeft = 0; // Бесконечно
+            }
+            
             fishes = [];
             bubbles = [];
             scoreAnims = [];
@@ -182,6 +223,12 @@
             
             document.getElementById('timerUI').style.display = mode === 'challenge' ? 'block' : 'none';
             document.getElementById('targetUI').style.display = mode === 'challenge' ? 'block' : 'none';
+            
+            // Обновляем цель в зависимости от сложности
+            if (mode === 'challenge') {
+                document.getElementById('targetUI').innerHTML = `🎯 <span id="caughtVal">0</span>/${currentDifficulty.target}`;
+            }
+            
             updateUI();
             showScreen(null);
             
@@ -208,12 +255,14 @@
             gameState = 'GAMEOVER';
             if (timerId) { clearInterval(timerId); timerId = null; }
             
-            const won = caught >= 25;
+            const target = gameMode === 'challenge' ? currentDifficulty.target : 0;
+            const won = gameMode === 'challenge' ? caught >= target : true;
             document.getElementById('resultTitle').textContent = gameMode === 'challenge' ? (won ? '🎉 ПОБЕДА!' : '⏰ Время вышло!') : '🎣 Отличный улов!';
             document.getElementById('resultTitle').style.color = gameMode === 'challenge' && won ? '#4CAF50' : '#FFD700';
             document.getElementById('resultStats').innerHTML = `
-                🎯 Поймано: <span class="${gameMode === 'challenge' && won ? 'success' : ''}"><b>${caught}</b></span>${gameMode === 'challenge' ? '/25' : ''}<br>
+                🎯 Поймано: <span class="${gameMode === 'challenge' && won ? 'success' : ''}"><b>${caught}</b></span>${gameMode === 'challenge' ? '/' + target : ''}<br>
                 ⭐ Очки: <b>${score}</b>
+                ${gameMode === 'challenge' ? `<br>⭐ Сложность: <b>${gameDifficulty === 'easy' ? 'Лёгкая' : gameDifficulty === 'hard' ? 'Сложная' : 'Средняя'}</b>` : ''}
             `;
             showScreen('gameOverScreen');
             
@@ -229,7 +278,8 @@
         
         // Spawn colorful fish
         function spawnFish() {
-            if (fishes.length < 5 && Math.random() < 0.02) {
+            const spawnRate = gameMode === 'challenge' ? currentDifficulty.spawnRate : 0.02;
+            if (fishes.length < 5 && Math.random() < spawnRate) {
                 const types = [
                     {e: '🐟', s: 2, p: 10, name: 'blue'},      // Blue fish
                     {e: '🐠', s: 3, p: 20, name: 'yellow'},    // Yellow/orange fish  
@@ -289,8 +339,9 @@
             
             // Hook - realistic physics, heavy sink
             if (hook.drop) {
-                // Slower, realistic fall - like heavy weight
-                hook.len += 8; // Slower drop for realism
+                // Скорость крючка зависит от сложности
+                const hookSpeed = gameMode === 'challenge' ? currentDifficulty.hookSpeed : 10;
+                hook.len += hookSpeed;
                 hook.y = boat.y + 20 + hook.len;
                 
                 // Hook lags behind boat (realistic physics)
@@ -318,7 +369,7 @@
                         updateUI();
                         // Add floating score animation
                         addScoreAnim(f.x, f.y, f.type.p);
-                        if (gameMode === 'challenge' && caught >= 25) { endGame(); return; }
+                        if (gameMode === 'challenge' && caught >= currentDifficulty.target) { endGame(); return; }
                         break;
                     }
                 }
@@ -338,9 +389,10 @@
                 }
             }
             
-            // Fishes
+            // Fishes - скорость зависит от сложности
+            const speedMult = gameMode === 'challenge' ? currentDifficulty.fishSpeed : 1;
             for (const f of fishes) {
-                if (!f.caught) { f.x += f.type.s * f.dir; f.w += 0.15; }
+                if (!f.caught) { f.x += f.type.s * f.dir * speedMult; f.w += 0.15; }
             }
             fishes = fishes.filter(f => f.x > -100 && f.x < canvas.width + 100);
             
