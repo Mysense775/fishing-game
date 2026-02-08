@@ -14,7 +14,7 @@
             height: 100vh;
         }
         #gameContainer { position: relative; width: 100%; height: 100%; }
-        #gameCanvas { display: block; width: 100%; height: 100%; }
+        #gameCanvas { display: block; width: 100%; height: 100%; pointer-events: none; }
         #ui {
             position: absolute;
             top: 10px;
@@ -72,13 +72,14 @@
             background: linear-gradient(135deg, #0088CC, #00AAFF);
             color: white;
             border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
+            padding: 10px 20px;
+            border-radius: 25px;
             font-size: 14px;
             font-weight: bold;
             cursor: pointer;
-            z-index: 200;
-            box-shadow: 0 2px 10px rgba(0, 136, 204, 0.4);
+            z-index: 1000;
+            pointer-events: auto;
+            box-shadow: 0 4px 15px rgba(0, 136, 204, 0.5);
         }
         #walletBtn:hover { background: linear-gradient(135deg, #006699, #0088CC); }
         #buyStarsBtn {
